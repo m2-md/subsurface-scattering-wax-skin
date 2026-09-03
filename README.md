@@ -1,5 +1,9 @@
 # Subsurface scattering — wax and skin (wrap + transmission + baked thickness map)
 
+<!-- LINKS:BEGIN — üretildi: scripts/sync-repo-links.py · elle düzenleme -->
+**▶ [Live demo](https://m2-md.github.io/subsurface-scattering-wax-skin/)** · [Source](https://github.com/m2-md/subsurface-scattering-wax-skin)
+<!-- LINKS:END -->
+
 Working code for the article "Material That Light Passes Through: Real-Time
 Subsurface Scattering for Wax and Skin". `three@0.185.1` + `WebGLRenderer` + raw
 GLSL ES 3.00 (`ShaderMaterial` + `glslVersion: THREE.GLSL3`), TypeScript, Vite,
