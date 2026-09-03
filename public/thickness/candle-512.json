@@ -1,0 +1,8 @@
+{
+  "mesh": "candle",
+  "resolution": 512,
+  "rays": 32,
+  "maxChordWorld": 1.120924,
+  "meanThicknessNormalized": 0.852305,
+  "triangles": 9600
+}

@@ -1,0 +1,8 @@
+{
+  "mesh": "blob",
+  "resolution": 256,
+  "rays": 32,
+  "maxChordWorld": 1.744308,
+  "meanThicknessNormalized": 0.55082,
+  "triangles": 9600
+}

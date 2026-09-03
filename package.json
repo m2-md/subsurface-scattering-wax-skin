@@ -1,0 +1,29 @@
+{
+  "name": "subsurface-scattering-wax-skin",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Elle yazılmış wrap lighting + görüş-bağımlı geçirgenlik lobu ve Node'da offline pişirilmiş kalınlık haritası; kontrol grubu olarak three'nin MeshPhysicalMaterial transmission yolu",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "bake": "vite-node tools/bake-thickness.ts --",
+    "bake:all": "node tools/bake-all.mjs",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/three": "0.185.4",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "vite": "^7.0.0",
+    "vite-node": "^3.0.0",
+    "vitest": "^3.0.0"
+  }
+}
