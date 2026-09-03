@@ -20,8 +20,8 @@ export const SSS_DEFAULTS = {
 } as const;
 
 /**
- * `uLightDirection` yüzeyden IŞIĞA doğru bakan BİRİM vektördür.
- * Bu yazının en kolay hatası burada işaret kaçırmak.
+ * `uLightDirection` is the UNIT vector pointing from the surface to the LIGHT.
+ * The easiest mistake in this article is losing that sign here.
  */
 export function createSssMaterial(
   thicknessR: THREE.Texture | null,

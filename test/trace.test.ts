@@ -5,13 +5,13 @@ import { cosineDirection, radicalInverse2 } from "../src/bake/sampling";
 import { traceThickness } from "../src/bake/trace";
 import { icosphereTriangles } from "./geometry";
 
-// Birim kürenin sınırlayıcı kutusunun köşegeni: fırındaki `maxChord`ın karşılığı.
+// Diagonal of the unit sphere's bounding box: the bake's `maxChord`.
 const MAX_CHORD = 2 * Math.sqrt(3);
 const RAYS = 8;
 
 /**
- * Üçgen köşelerini texel gibi kullan: birim kürede konum zaten normalin kendisi.
- * Rasterizasyona gerek yok, `traceThickness` sadece bu üç diziyi istiyor.
+ * Use triangle vertices as texels: on the unit sphere the position already is
+ * the normal. No rasterization needed; `traceThickness` wants these 3 arrays.
  */
 function texelsFromSurface(tris: Float32Array) {
   const texelCount = tris.length / 3;
@@ -21,11 +21,11 @@ function texelsFromSurface(tris: Float32Array) {
   return { positions, normals, filled, texelCount };
 }
 
-const sphere = icosphereTriangles(2); // 320 üçgen, kapalı ve dışbükey
+const sphere = icosphereTriangles(2); // 320 triangles, closed and convex
 const half = sphere.subarray(0, Math.floor(sphere.length / 9 / 2) * 9);
 
-describe("traceThickness — kaçan ışın sayacı", () => {
-  it("kapalı gövdede kaçak yok ve her texel sonlu bir kalınlık alıyor", () => {
+describe("traceThickness — escaped ray counter", () => {
+  it("no escapes on a closed body, every texel gets a finite thickness", () => {
     const { positions, normals, filled, texelCount } =
       texelsFromSurface(sphere);
     const { raw, escaped } = traceThickness({
@@ -41,12 +41,12 @@ describe("traceThickness — kaçan ışın sayacı", () => {
     expect(escaped).toBe(0);
     for (let i = 0; i < texelCount; i++) {
       expect(raw[i]).toBeGreaterThan(0);
-      expect(raw[i]).toBeLessThan(2.0001); // kürenin çapı, tavandan küçük
+      expect(raw[i]).toBeLessThan(2.0001); // sphere diameter, under the ceiling
     }
   });
 
-  it("üçgenlerin yarısı silinince kaçak sayısı sıfırdan büyük", () => {
-    // Denetim sondası: gövdede kocaman bir delik açılınca sayaç ötmeli.
+  it("escape count is above zero once half the triangles are deleted", () => {
+    // Audit probe: the counter must fire once a huge hole opens in the body.
     const { positions, normals, filled, texelCount } =
       texelsFromSurface(sphere);
     const { raw, escaped } = traceThickness({
@@ -60,21 +60,21 @@ describe("traceThickness — kaçan ışın sayacı", () => {
     });
 
     expect(escaped).toBeGreaterThan(0);
-    // Yarısı yoksa kaçak oranı da fark edilir olmalı, tek tük değil.
+    // With half of it missing the escape rate should be noticeable, not a trickle.
     expect(escaped / (texelCount * RAYS)).toBeGreaterThan(0.1);
-    // Kaçan ışın kalınlığı tavana dayıyor, ama "en az bir texel TAM tavan"
-    // iddiası bu kabukta geometrik olarak yanlış: projeden bağımsız, çift
-    // duyarlıklı bir Möller–Trumbore sondasıyla saydım — bir texel'in 8
-    // ışınından EN FAZLA 6'sı kaçıyor (7/8 ve 8/8 kaçıran texel yok, histogram
-    // 0,0,89,250,312,291,18,0,0). Delikli kabuktan atılan geniş açılı ışınlar
-    // duran yarıya sürtüyor. Doğru ölçüt: en kalın texel 6 tavan ışınının
-    // altına düşemez ve tavanı da geçemez.
+    // An escaped ray's thickness hits the ceiling, but the "at least one texel
+    // is EXACTLY at the ceiling" claim is geometrically false on this shell: I
+    // counted with a project-independent, double-precision Möller–Trumbore
+    // probe — AT MOST 6 of a texel's 8 rays escape (no texel escapes 7/8 or
+    // 8/8, histogram 0,0,89,250,312,291,18,0,0). The wide-angle rays cast from
+    // the holed shell graze the half still standing. The right criterion: the
+    // thickest texel cannot drop below 6 ceiling rays, nor pass the ceiling.
     const maxRaw = Math.max(...raw);
     expect(maxRaw).toBeGreaterThan((6 / RAYS) * MAX_CHORD);
     expect(maxRaw).toBeLessThan(MAX_CHORD);
   });
 
-  it("kaba kuvvet yolu (bvh = null) aynı kaçak sayısını veriyor", () => {
+  it("the brute force path (bvh = null) gives the same escape count", () => {
     const { positions, normals, filled } = texelsFromSurface(sphere);
     const args = {
       tris: half,
@@ -91,9 +91,9 @@ describe("traceThickness — kaçan ışın sayacı", () => {
     expect(Array.from(brute.raw)).toEqual(Array.from(tree.raw));
   });
 
-  it("ıskalayan ışın Infinity değil tavanı döndürüyor — `t === Infinity` ölçütü ölü", () => {
-    // Sayaç neden `>= maxChord` ile yazılmak zorunda: iki kesişim yolu da
-    // `let best = tMax` ile başlıyor, ıskada tavan geri geliyor.
+  it("a miss returns the ceiling, not Infinity — the `t === Infinity` check is dead", () => {
+    // Why the counter has to be written with `>= maxChord`: both intersection
+    // paths start at `let best = tMax`, so a miss brings the ceiling back.
     const bvh = new Bvh(half, 4);
     let infinities = 0;
     let ceilings = 0;

@@ -3,9 +3,9 @@ import { backTranslucency, wrapDiffuse } from "../src/translucency";
 import type { Vec3 } from "../src/vec";
 
 /**
- * GLSL ↔ TS parite. Kaydedilmiş beklenen değerlerle değil, formülü ANALİTİK
- * olarak yeniden türeterek karşılaştırıyoruz: amaç `src/translucency.ts`'in
- * kopyala-yapıştır sırasında bozulmadığını yakalamak.
+ * GLSL ↔ TS parity. Instead of recorded expected values we compare against
+ * an ANALYTIC re-derivation of the formula: the point is to catch a
+ * copy-paste breaking `src/translucency.ts`.
  */
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
@@ -22,8 +22,8 @@ function unit(random: () => number): Vec3 {
   return [r * Math.cos(phi), r * Math.sin(phi), z];
 }
 
-/** Referans: `pow(clamp(dot(v, -normalize(l + n*d)), 0, 1), p) * s + a`
- *  çarpı `exp(-k*t)`. */
+/** Reference: `pow(clamp(dot(v, -normalize(l + n*d)), 0, 1), p) * s + a`
+ *  times `exp(-k*t)`. */
 function reference(
   l: Vec3,
   n: Vec3,
@@ -44,8 +44,8 @@ function reference(
   return (Math.pow(clamped, p) * s + a) * Math.exp(-k * t);
 }
 
-describe("translucency parite", () => {
-  it("200 sabit tohumlu dörtlüde analitik türetmeyle örtüşür", () => {
+describe("translucency parity", () => {
+  it("matches the analytic derivation on 200 fixed-seed quadruples", () => {
     const random = lcg(20260813);
     for (let i = 0; i < 200; i++) {
       const l = unit(random);
@@ -69,7 +69,7 @@ describe("translucency parite", () => {
     }
   });
 
-  it("wrapDiffuse analitik formülle 200 noktada örtüşür", () => {
+  it("wrapDiffuse matches the analytic formula at 200 points", () => {
     const random = lcg(4242);
     for (let i = 0; i < 200; i++) {
       const ndl = random() * 2 - 1;

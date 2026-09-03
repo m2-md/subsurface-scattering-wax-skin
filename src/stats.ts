@@ -13,11 +13,11 @@ export function percentile(values: readonly number[], p: number): number {
 }
 
 /**
- * İki DOĞRUSAL RGBA karesi arasında kanal başına RMS farkı. Alfa YOK SAYILIR.
- * Girdiler half float'tan çözülmüş `Float32Array`'ler.
+ * Per-channel RMS difference between two LINEAR RGBA frames. Alpha is IGNORED.
+ * The inputs are `Float32Array`s decoded from half float.
  */
 export function rmsDifference(a: Float32Array, b: Float32Array): number {
-  if (a.length !== b.length) throw new Error("tampon boyutları eşit değil");
+  if (a.length !== b.length) throw new Error("buffer sizes are not equal");
   const pixels = Math.floor(a.length / 4);
   let sum = 0;
   for (let i = 0; i < pixels; i++) {

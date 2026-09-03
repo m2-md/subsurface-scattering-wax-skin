@@ -6,7 +6,7 @@ void main() {
   vUv = uv;
   vec4 world = modelMatrix * vec4(position, 1.0);
   vWorldPosition = world.xyz;
-  // normalMatrix GÖRÜŞ uzayına götürür; burada dünya uzayı gerekiyor.
+  // normalMatrix takes you to VIEW space; here we need world space.
   vWorldNormal = mat3(modelMatrix) * normal;
   gl_Position = projectionMatrix * viewMatrix * world;
 }

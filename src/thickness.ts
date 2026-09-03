@@ -8,12 +8,12 @@ export async function loadThickness(
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
-      `kalınlık haritası bulunamadı: ${url} — önce "npm run bake"`,
+      `thickness map not found: ${url} — run "npm run bake" first`,
     );
   }
   const data = new Uint8Array(await response.arrayBuffer());
   if (data.length !== size * size) {
-    throw new Error(`beklenen ${size * size} bayt, gelen ${data.length}`);
+    throw new Error(`expected ${size * size} bytes, got ${data.length}`);
   }
 
   const texture = new THREE.DataTexture(
@@ -25,15 +25,15 @@ export async function loadThickness(
   );
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.RepeatWrapping; // u ekseni gövdenin etrafında dönüyor
+  texture.wrapS = THREE.RepeatWrapping; // the u axis wraps around the body
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.generateMipmaps = false;
   texture.needsUpdate = true;
   return texture;
 }
 
-// src/thickness.ts (parça)
-// three'nin thicknessMap'i .g okuyor; tek kanallı harita orada sıfır döner.
+// src/thickness.ts (excerpt)
+// three's thicknessMap reads .g; a single-channel map returns zero there.
 export function expandToRG(data: Uint8Array, size: number): THREE.DataTexture {
   const rg = new Uint8Array(size * size * 2);
   for (let i = 0; i < size * size; i++) {
@@ -70,7 +70,7 @@ export interface ThicknessSet {
   meta: ThicknessMeta | null;
 }
 
-/** Bir çözünürlüğün iki temsilini birden kurar: R8 (elle yazılan shader) + RG8. */
+/** Builds both representations of one resolution: R8 (hand-written shader) + RG8. */
 export async function loadThicknessSet(
   mesh: string,
   size: number,

@@ -15,7 +15,7 @@ function collect(a: Vec2, b: Vec2, c: Vec2, size = SIZE) {
 }
 
 describe("rasterizeTriangle", () => {
-  it("doldurulan texel sayısı üçgen alanıyla orantılı", () => {
+  it("the number of filled texels is proportional to the triangle area", () => {
     const half = collect([0, 0], [1, 0], [0, 1]);
     const quarter = collect([0, 0], [0.5, 0], [0, 0.5]);
     const total = SIZE * SIZE;
@@ -25,14 +25,14 @@ describe("rasterizeTriangle", () => {
     expect(quarter.written / total).toBeLessThan(0.125 * 1.1);
   });
 
-  it("baryantrik ağırlıkların toplamı 1", () => {
+  it("the barycentric weights sum to 1", () => {
     const { weights } = collect([0, 0], [1, 0], [0, 1]);
     for (const [wa, wb, wc] of weights) {
       expect(wa + wb + wc).toBeCloseTo(1, 12);
     }
   });
 
-  it("ağırlıkların hepsi -EDGE'in üstünde", () => {
+  it("all weights are above -EDGE", () => {
     const { weights } = collect([0.1, 0.2], [0.8, 0.15], [0.4, 0.9]);
     for (const [wa, wb, wc] of weights) {
       expect(wa).toBeGreaterThanOrEqual(-EDGE);
@@ -41,12 +41,12 @@ describe("rasterizeTriangle", () => {
     }
   });
 
-  it("dejenere üçgen 0 döndürür", () => {
+  it("a degenerate triangle returns 0", () => {
     expect(collect([0.2, 0.2], [0.6, 0.6], [0.4, 0.4]).written).toBe(0);
     expect(collect([0.2, 0.2], [0.2, 0.2], [0.2, 0.2]).written).toBe(0);
   });
 
-  it("ızgara dışına taşan üçgen kırpılır, indeks aralıkta kalır", () => {
+  it("a triangle spilling out of the grid is clipped, indices stay in range", () => {
     const { texels, written } = collect([-2, -2], [4, -2], [-2, 4]);
     expect(written).toBeGreaterThan(0);
     for (const texel of texels) {
@@ -55,8 +55,8 @@ describe("rasterizeTriangle", () => {
     }
   });
 
-  it("birim kareyi kaplayan iki üçgen BÜTÜN texel'leri doldurur", () => {
-    // Texel merkezi kaydırmasının (- 0.5) doğruluğu buna bağlı.
+  it("two triangles covering the unit square fill ALL texels", () => {
+    // The correctness of the texel-centre offset (- 0.5) depends on this.
     const seen = new Set<number>();
     const push = (texel: number) => seen.add(texel);
     rasterizeTriangle(SIZE, [0, 0], [1, 0], [1, 1], push);
@@ -64,8 +64,8 @@ describe("rasterizeTriangle", () => {
     expect(seen.size).toBe(SIZE * SIZE);
   });
 
-  it("texel indeksi satır-öncelikli: y * size + x", () => {
-    // Yalnızca (0,0) texel'ini kaplayan küçük bir üçgen.
+  it("texel index is row-major: y * size + x", () => {
+    // A small triangle covering only the (0,0) texel.
     const { texels } = collect([0, 0], [1 / SIZE, 0], [0, 1 / SIZE]);
     expect(texels).toContain(0);
     for (const texel of texels) {

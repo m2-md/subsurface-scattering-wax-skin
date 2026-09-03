@@ -1,7 +1,7 @@
 import type { Vec2 } from "../vec";
 
 // src/bake/raster.ts
-const EDGE = 1e-6; // texel merkezi kenarın tam üstündeyse elemeyelim
+const EDGE = 1e-6; // don't cull when the texel centre sits exactly on an edge
 
 export function rasterizeTriangle(
   size: number,
@@ -10,7 +10,7 @@ export function rasterizeTriangle(
   c: Vec2,
   emit: (texel: number, wa: number, wb: number, wc: number) => void,
 ): number {
-  // Texel merkezi (x + 0.5, y + 0.5) noktasında; koordinatı yarım kaydırıyoruz.
+  // The texel centre is at (x + 0.5, y + 0.5); we shift the coordinate by half.
   const ax = a[0] * size - 0.5;
   const ay = a[1] * size - 0.5;
   const bx = b[0] * size - 0.5;
@@ -19,7 +19,7 @@ export function rasterizeTriangle(
   const cy = c[1] * size - 0.5;
 
   const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-  if (Math.abs(area) < 1e-12) return 0; // kutupta dejenere üçgenler var
+  if (Math.abs(area) < 1e-12) return 0; // degenerate triangles exist at the pole
   const inv = 1 / area;
 
   const minX = Math.max(0, Math.floor(Math.min(ax, bx, cx)));

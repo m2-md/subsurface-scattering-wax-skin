@@ -3,40 +3,40 @@ import { bruteForceIntersect } from "./intersect";
 import { cosineDirection, radicalInverse2 } from "./sampling";
 import type { Vec3 } from "../vec";
 
-/** Işını yüzeyin bir tık altından başlatma payı. */
+/** Margin for starting the ray just below the surface. */
 export const ORIGIN_EPS = 1e-4;
 
 export interface TraceInput {
-  /** Üçgen başına 9 float. `bvh` null ise kaba kuvvet bu diziyi tarar. */
+  /** 9 floats per triangle. If `bvh` is null, brute force scans this array. */
   tris: Float32Array;
-  /** Ağaç yoksa (`--bvh=off`) null. */
+  /** Null when there is no tree (`--bvh=off`). */
   bvh: Bvh | null;
   positions: Float32Array;
   normals: Float32Array;
   filled: Uint8Array;
   rays: number;
-  /** Işın uzunluğu tavanı: gövdenin köşegeni. */
+  /** Ceiling on ray length: the body's diagonal. */
   maxChord: number;
 }
 
 export interface TraceResult {
-  /** Texel başına ortalama iç yol uzunluğu, dünya birimi. */
+  /** Mean interior path length per texel, in world units. */
   raw: Float32Array;
-  /** Hiçbir duvara çarpmadan tavana dayanan ışın sayısı. */
+  /** Number of rays that hit no wall and ran into the ceiling. */
   escaped: number;
 }
 
 /**
- * Fırının çekirdeği: her dolu texel'den kosinüs ağırlıklı ışınlar atıp ortalama
- * iç yol uzunluğunu ölçer. Ayrı dosyada duruyor ki kaçan ışın sayacı test
- * edilebilsin — sayaç bir kalite göstergesi ve sınanmayan gösterge ölür.
+ * The baker's core: shoots cosine-weighted rays from each filled texel and
+ * measures the mean interior path length. Separate file so the escaped-ray
+ * counter can be tested — it is a quality indicator, and untested ones die.
  */
 export function traceThickness(input: TraceInput): TraceResult {
   const { tris, bvh, positions, normals, filled, rays, maxChord } = input;
   const texelCount = filled.length;
   const raw = new Float32Array(texelCount);
 
-  // src/bake/trace.ts (parça)
+  // src/bake/trace.ts (excerpt)
   const origin: Vec3 = [0, 0, 0];
   let escaped = 0;
 
@@ -44,7 +44,7 @@ export function traceThickness(input: TraceInput): TraceResult {
     if (filled[i] !== 1) continue;
     const p = positions.subarray(i * 3, i * 3 + 3);
     const n = normals.subarray(i * 3, i * 3 + 3);
-    // Işını yüzeyin bir tık altından başlat; aksi hâlde ilk kesişim kendisidir.
+    // Start the ray just below the surface; otherwise the first hit is itself.
     origin[0] = p[0] - n[0] * ORIGIN_EPS;
     origin[1] = p[1] - n[1] * ORIGIN_EPS;
     origin[2] = p[2] - n[2] * ORIGIN_EPS;
@@ -57,9 +57,9 @@ export function traceThickness(input: TraceInput): TraceResult {
       const t = bvh
         ? bvh.intersect(origin[0], origin[1], origin[2], dx, dy, dz, maxChord)
         : bruteForceIntersect(tris, origin, [dx, dy, dz], maxChord);
-      // Iska `Infinity` DEĞİL: iki kesişim yolu da `let best = tMax` ile
-      // başlayıp ıskaladığında tavanı döndürüyor. Ölçüt bu yüzden `>= maxChord`.
-      if (t >= maxChord) escaped++; // kapalı gövdede olmaması gereken durum
+      // A miss is NOT `Infinity`: both intersection paths start from
+      // `let best = tMax` and return the ceiling on a miss. Hence `>= maxChord`.
+      if (t >= maxChord) escaped++; // should not happen on a closed body
       sum += Math.min(t, maxChord);
     }
     raw[i] = sum / rays;

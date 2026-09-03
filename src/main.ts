@@ -8,7 +8,7 @@ import type { MapSize, MaterialKind, Stage } from "./renderer";
 
 function need<T extends Element>(selector: string): T {
   const el = document.querySelector<T>(selector);
-  if (!el) throw new Error(`DOM düğümü yok: ${selector}`);
+  if (!el) throw new Error(`no DOM node: ${selector}`);
   return el;
 }
 
@@ -45,7 +45,7 @@ try {
 } catch (error) {
   canvas.remove();
   fail(
-    `Bu tarayıcıda WebGL2 bağlamı açılamadı, demo çalışamaz. (${String(error)})`,
+    `Could not open a WebGL2 context in this browser; the demo cannot run. (${String(error)})`,
   );
   throw error;
 }
@@ -58,7 +58,7 @@ canvas.addEventListener(
   (event) => {
     event.preventDefault();
     setRunning(false);
-    fail("WebGL bağlamı kayboldu. Sayfayı yenileyin.");
+    fail("The WebGL context was lost. Reload the page.");
     console.warn("webglcontextlost");
   },
   false,
@@ -76,24 +76,24 @@ function loop(now: number) {
 function setRunning(next: boolean): void {
   if (next === running) return;
   running = next;
-  toggleButton.textContent = running ? "Dur" : "Devam";
+  toggleButton.textContent = running ? "Pause" : "Resume";
   if (running) {
     frameId = requestAnimationFrame(loop);
   } else {
-    hud.setNote("Döngü duraklatıldı — sayaçlar donduruldu.");
+    hud.setNote("Loop paused — the counters are frozen.");
     cancelAnimationFrame(frameId);
   }
 }
 
 toggleButton.addEventListener("click", () => setRunning(!running));
 
-// src/main.ts (parça)
+// src/main.ts (excerpt)
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) setRunning(false);
 });
 
-function tr(value: number, digits: number): string {
-  return value.toFixed(digits).replace(".", ",");
+function fmt(value: number, digits: number): string {
+  return value.toFixed(digits);
 }
 
 function applyLight(): void {
@@ -117,10 +117,10 @@ function wireControls(): void {
   meshSelect.value = "candle";
   scaleSelect.value = String(DEFAULT_SCALE);
 
-  wrapOut.textContent = tr(0.5, 2);
-  powerOut.textContent = tr(4, 1);
-  distortionOut.textContent = tr(0.25, 2);
-  absorptionOut.textContent = tr(3, 1);
+  wrapOut.textContent = fmt(0.5, 2);
+  powerOut.textContent = fmt(4, 1);
+  distortionOut.textContent = fmt(0.25, 2);
+  absorptionOut.textContent = fmt(3, 1);
   applyLight();
 
   materialSelect.addEventListener("change", () => {
@@ -138,22 +138,22 @@ function wireControls(): void {
   wrapInput.addEventListener("input", () => {
     const value = Number(wrapInput.value);
     stage.setLobe({ wrap: value });
-    wrapOut.textContent = tr(value, 2);
+    wrapOut.textContent = fmt(value, 2);
   });
   powerInput.addEventListener("input", () => {
     const value = Number(powerInput.value);
     stage.setLobe({ power: value });
-    powerOut.textContent = tr(value, 1);
+    powerOut.textContent = fmt(value, 1);
   });
   distortionInput.addEventListener("input", () => {
     const value = Number(distortionInput.value);
     stage.setLobe({ distortion: value });
-    distortionOut.textContent = tr(value, 2);
+    distortionOut.textContent = fmt(value, 2);
   });
   absorptionInput.addEventListener("input", () => {
     const value = Number(absorptionInput.value);
     stage.setLobe({ absorption: value });
-    absorptionOut.textContent = tr(value, 1);
+    absorptionOut.textContent = fmt(value, 1);
   });
   meshSelect.addEventListener("change", () => {
     const mesh = meshSelect.value as MeshName;
@@ -165,7 +165,7 @@ function wireControls(): void {
       })
       .catch((error: unknown) => {
         meshSelect.value = "candle";
-        hud.setNote(`${mesh} haritası yok — "npm run bake -- --mesh=${mesh}"`);
+        hud.setNote(`no ${mesh} map — "npm run bake -- --mesh=${mesh}"`);
         console.warn(String(error));
       });
   });
@@ -220,7 +220,7 @@ stage
     if (measureMode) {
       document.body.classList.add("measuring");
       toggleButton.disabled = true;
-      hud.setNote("Deterministik ölçüm koşuyor… (sekmeyi ön planda tutun)");
+      hud.setNote("Deterministic measurement running… (keep the tab in front)");
       running = false;
       return runMeasurement(stage, only).then((report) => {
         console.log(`MEASURE ${JSON.stringify(report)}`);
@@ -236,14 +236,14 @@ stage
   })
   .catch((error: unknown) => {
     const message = String(error);
-    // Vite geliştirme sunucusu bulunmayan bir dosya için index.html döndürüyor;
-    // o yüzden 404 kadar bayt sayısı uyuşmazlığı da "harita yok" demek.
+    // The Vite dev server returns index.html for a file that does not exist,
+    // so a byte-count mismatch means "no map" just as much as a 404 does.
     const mapProblem =
-      message.includes("kalınlık haritası bulunamadı") ||
-      message.includes("beklenen");
+      message.includes("thickness map not found") ||
+      message.includes("expected");
     fail(
       mapProblem
-        ? `${message} — üç çözünürlüğü de pişirin: npm run bake:all`
+        ? `${message} — bake all three resolutions: npm run bake:all`
         : message,
     );
     console.error(error);

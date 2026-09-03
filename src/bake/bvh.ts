@@ -1,31 +1,31 @@
 import { intersectTriangle } from "./intersect";
 
 /**
- * `1 / d` bunu aşarsa ışın o eksene paralel sayılır (`|d| < 1e-9`). Tam paralel
- * ışın `Infinity` verir, neredeyse-paralel olan sonlu ama devasa bir sayı; ikisi
- * de aynı muameleyi görmek zorunda.
+ * If `1 / d` exceeds this, the ray counts as parallel to that axis
+ * (`|d| < 1e-9`). A perfectly parallel ray gives `Infinity`, a near-parallel one
+ * a finite but huge number; both have to be treated the same way.
  */
 const PARALLEL_INV = 1e9;
 
-/** Paralel eksende "başlangıç dilimin içinde mi" testinin payı, dünya birimi. */
+/** Margin for the "origin in the slab" test on a parallel axis, world units. */
 const SLAB_EPS = 1e-6;
 
 /**
- * Bir düğümün kutusuna giriş mesafesi, ıskalarsa `Infinity`.
+ * Entry distance to a node's box, `Infinity` on a miss.
  *
- * NaN tuzağı: ışın bir eksene tam paralelken `1 / d` sonsuz oluyor ve kutunun o
- * eksendeki sınırı ışının başlangıcıyla çakışırsa `0 * Infinity = NaN` çıkıyor.
- * `Math.min` / `Math.max` NaN'i sessizce yayar.
+ * The NaN trap: when the ray is exactly parallel to an axis `1 / d` becomes
+ * infinite, and if the box bound on that axis coincides with the ray origin you
+ * get `0 * Infinity = NaN`. `Math.min` / `Math.max` propagate NaN silently.
  *
- * Sinsi olan varyantı `1 / d`nin sonsuz değil sadece devasa olduğu hâl: yön
- * bileşeni `3.4e-17` gibi bir artık, ışının başlangıcı da kutunun `max` düzlemi
- * üstünde. `hi = (max - o) * inv` tam olarak 0 çıkıyor, `tmax` 0'a kelepçeleniyor
- * ve gerçek kesişimi taşıyan düğüm eleniyor. NaN yok, sessiz bir ıska var.
+ * The sneaky variant is when `1 / d` is not infinite but merely huge: the
+ * direction component is a residue like `3.4e-17`, and the ray origin sits on
+ * the box's `max` plane. `hi = (max - o) * inv` is exactly 0, `tmax` gets
+ * clamped to 0 and the node with the real hit is culled. No NaN, a silent miss.
  *
- * Çözüm standart sağlam slab testi: `|d|` eşiğin altındaki eksen kısıt ÜRETMEZ,
- * yalnızca başlangıcın dilimin (bir epsilon payıyla) içinde olmasını ister.
- * Böylece tam paralel ve neredeyse paralel aynı yoldan geçiyor ve çarpım hiç
- * yapılmadığı için `0 * Infinity` de doğmuyor.
+ * The fix is the standard robust slab test: an axis with `|d|` below the
+ * threshold PRODUCES NO constraint, it only requires the origin to be inside
+ * the slab (with an epsilon of margin). Parallel and near-parallel then take the
+ * same path, and the product is never computed, so `0 * Infinity` cannot arise.
  */
 export function slabDistance(
   bounds: Float32Array,
@@ -95,18 +95,18 @@ export function slabDistance(
 }
 
 /**
- * En uzun eksende ortanca bölmeyle kurulan sınırlayıcı hacim hiyerarşisi.
- * Yaprakları `leafSize` üçgen tutar. Sağ çocuk HER ZAMAN solun bir sonrasıdır;
- * `intersect` döngüsü buna dayanıyor.
+ * Bounding volume hierarchy built by median split on the longest axis.
+ * Its leaves hold `leafSize` triangles. The right child is ALWAYS the one after
+ * the left; the `intersect` loop relies on that.
  */
 export class Bvh {
   readonly tris: Float32Array;
   readonly order: Int32Array;
   readonly bounds: Float32Array;
   /**
-   * Düğüm başına 3 int: `left`, `start`, `count`. `count >= 0` → yaprak,
-   * `count === -1` → iç düğüm. Boş ağacın kökü sıfır üçgenli bir yapraktır;
-   * bu yüzden eşik `> 0` değil `>= 0`.
+   * 3 ints per node: `left`, `start`, `count`. `count >= 0` → leaf,
+   * `count === -1` → interior node. The root of an empty tree is a leaf with
+   * zero triangles; that is why the threshold is `>= 0`, not `> 0`.
    */
   readonly meta: Int32Array;
   readonly stack: Int32Array;
@@ -132,7 +132,7 @@ export class Bvh {
       centroids[i * 3 + 2] = (tris[t + 2] + tris[t + 5] + tris[t + 8]) / 3;
     }
 
-    // Her yaprak en az bir üçgen tutuyor → en fazla 2n − 1 düğüm.
+    // Every leaf holds at least one triangle → at most 2n − 1 nodes.
     const capacity = Math.max(1, 2 * count + 1);
     this.bounds = new Float32Array(capacity * 6);
     this.meta = new Int32Array(capacity * 3);
@@ -202,7 +202,7 @@ export class Bvh {
       used += 2;
       this.meta[node * 3] = left;
       this.meta[node * 3 + 1] = start;
-      this.meta[node * 3 + 2] = -1; // iç düğüm
+      this.meta[node * 3 + 2] = -1; // interior node
       build(left, start, mid, level + 1);
       build(left + 1, start + mid, span - mid, level + 1);
     };
@@ -213,7 +213,7 @@ export class Bvh {
     this.stack = new Int32Array(2 * maxDepth + 8);
   }
 
-  // src/bake/bvh.ts (parça)
+  // src/bake/bvh.ts (excerpt)
   intersect(
     ox: number,
     oy: number,
@@ -226,7 +226,7 @@ export class Bvh {
     const invX = 1 / dx,
       invY = 1 / dy,
       invZ = 1 / dz;
-    const stack = this.stack; // önceden ayrılmış Int32Array — döngüde tahsis yok
+    const stack = this.stack; // preallocated Int32Array — no allocation in loop
     let sp = 0;
     stack[sp++] = 0;
     let best = tMax;
@@ -241,7 +241,7 @@ export class Bvh {
       }
       const count = this.meta[node * 3 + 2];
       if (count >= 0) {
-        // yaprak
+        // leaf
         const start = this.meta[node * 3 + 1];
         for (let k = 0; k < count; k++) {
           const t = intersectTriangle(
@@ -259,7 +259,7 @@ export class Bvh {
       } else {
         const left = this.meta[node * 3];
         stack[sp++] = left;
-        stack[sp++] = left + 1; // sağ çocuk her zaman solun bir sonrası
+        stack[sp++] = left + 1; // right child is always the one after left
       }
     }
     return best;

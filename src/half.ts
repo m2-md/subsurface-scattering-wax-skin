@@ -1,7 +1,7 @@
 /**
- * IEEE 754 yarım kayan noktalı (16 bit) bir deseni sayıya çevirir.
- * `readRenderTargetPixels` `HalfFloatType` bir hedeften `Uint16Array` döndürür;
- * parlaklık ortalamasını almadan önce çözmek gerekiyor.
+ * Converts an IEEE 754 half precision (16 bit) pattern into a number.
+ * `readRenderTargetPixels` returns a `Uint16Array` from a `HalfFloatType`
+ * target; it has to be decoded before taking the luminance mean.
  */
 export function halfToFloat(bits: number): number {
   const h = bits & 0xffff;
@@ -10,7 +10,7 @@ export function halfToFloat(bits: number): number {
   const mantissa = h & 0x03ff;
 
   if (exponent === 0) {
-    // Subnormal: gizli bit yok, üs sabit 2^-14.
+    // Subnormal: no hidden bit, exponent fixed at 2^-14.
     return sign * mantissa * 2 ** -24;
   }
   if (exponent === 0x1f) {
@@ -19,7 +19,7 @@ export function halfToFloat(bits: number): number {
   return sign * (1 + mantissa / 1024) * 2 ** (exponent - 15);
 }
 
-/** Tüm tamponu tek seferde çözer. */
+/** Decodes the whole buffer in one go. */
 export function halfArrayToFloat(bits: Uint16Array): Float32Array {
   const out = new Float32Array(bits.length);
   for (let i = 0; i < bits.length; i++) out[i] = halfToFloat(bits[i]);

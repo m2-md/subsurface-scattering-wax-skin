@@ -4,32 +4,32 @@ import { blobProfile, candleProfile, smoothstep } from "../src/mesh";
 describe("candleProfile", () => {
   const points = candleProfile(48);
 
-  it("nokta sayısı steps + 3", () => {
+  it("point count is steps + 3", () => {
     expect(points).toHaveLength(51);
     expect(candleProfile(12)).toHaveLength(15);
   });
 
-  it("ilk ve son noktanın x'i tam 0 — gövde kapalı", () => {
+  it("the first and last point have x exactly 0 — the body is closed", () => {
     expect(points[0].x).toBe(0);
     expect(points[points.length - 1].x).toBe(0);
     expect(points[0].y).toBe(-1);
     expect(points[points.length - 1].y).toBe(1);
   });
 
-  it("ara noktaların hepsinde x > 0", () => {
+  it("every intermediate point has x > 0", () => {
     for (let i = 1; i < points.length - 1; i++) {
       expect(points[i].x).toBeGreaterThan(0);
     }
   });
 
-  it("y monoton artar (azalmaz)", () => {
+  it("y increases monotonically (never decreases)", () => {
     for (let i = 1; i < points.length; i++) {
       expect(points[i].y).toBeGreaterThanOrEqual(points[i - 1].y);
     }
     expect(points[points.length - 1].y).toBe(1);
   });
 
-  it("tepedeki rim gövdeden belirgin biçimde ince", () => {
+  it("the rim at the top is markedly thinner than the body", () => {
     const widest = Math.max(...points.map((p) => p.x));
     const rim = points[points.length - 2].x;
     expect(rim).toBeLessThan(widest * 0.2);
@@ -39,7 +39,7 @@ describe("candleProfile", () => {
 describe("blobProfile", () => {
   const points = blobProfile(48);
 
-  it("aynı kapalılık sözleşmesini sağlar", () => {
+  it("satisfies the same closedness contract", () => {
     expect(points).toHaveLength(51);
     expect(points[0].x).toBe(0);
     expect(points[points.length - 1].x).toBe(0);
@@ -48,26 +48,26 @@ describe("blobProfile", () => {
     }
   });
 
-  it("y monoton artar", () => {
+  it("y increases monotonically", () => {
     for (let i = 1; i < points.length; i++) {
       expect(points[i].y).toBeGreaterThanOrEqual(points[i - 1].y);
     }
   });
 
-  it("dibi geniş, tepesi ince", () => {
+  it("wide at the bottom, thin at the top", () => {
     expect(points[1].x).toBeGreaterThan(points[points.length - 2].x);
   });
 });
 
 describe("smoothstep", () => {
-  it("uçlarda 0 ve 1", () => {
+  it("0 and 1 at the ends", () => {
     expect(smoothstep(0, 1, -1)).toBe(0);
     expect(smoothstep(0, 1, 0)).toBe(0);
     expect(smoothstep(0, 1, 1)).toBe(1);
     expect(smoothstep(0, 1, 2)).toBe(1);
   });
 
-  it("ortada 0.5 ve arada monoton", () => {
+  it("0.5 in the middle and monotonic in between", () => {
     expect(smoothstep(0, 1, 0.5)).toBeCloseTo(0.5, 12);
     let previous = -1;
     for (let i = 0; i <= 20; i++) {
@@ -77,7 +77,7 @@ describe("smoothstep", () => {
     }
   });
 
-  it("e0 === e1 olduğunda basamak fonksiyonuna döner", () => {
+  it("falls back to a step function when e0 === e1", () => {
     expect(smoothstep(0.5, 0.5, 0.4)).toBe(0);
     expect(smoothstep(0.5, 0.5, 0.6)).toBe(1);
   });

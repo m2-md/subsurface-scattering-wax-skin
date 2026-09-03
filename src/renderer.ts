@@ -40,7 +40,7 @@ export interface StageStats {
   width: number;
   height: number;
   material: MaterialKind;
-  mapSize: MapSize | null; // null = sabit kalınlık
+  mapSize: MapSize | null; // null = constant thickness
   mode: number;
   pose: PoseName;
   lightAzimuthDeg: number;
@@ -110,14 +110,14 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
 
   const gl = renderer.getContext() as WebGL2RenderingContext;
   if (typeof WebGL2RenderingContext === "undefined") {
-    throw new Error("WebGL2 bağlamı yok");
+    throw new Error("no WebGL2 context");
   }
 
-  // Renk uzayı sözleşmesi: bütün çizim DOĞRUSAL ara hedefe, sRGB kodlaması
-  // yalnız present geçişinde. Tone mapping parlaklık ortalamasını ezer.
+  // Color space contract: everything draws into the LINEAR intermediate target,
+  // sRGB encoding only in the present pass. Tone mapping crushes the mean.
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
-  renderer.info.autoReset = false; // kare başına birden çok render() çağrısı
+  renderer.info.autoReset = false; // more than one render() call per frame
   renderer.setPixelRatio(1);
 
   const timer = new GpuTimer(gl);
@@ -237,7 +237,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   function applyMaps(): void {
     const set = currentSet();
     sssMaterial.uniforms.uUseMap.value = mapSize === null ? 0 : 1;
-    // uUseMap = 0 olsa bile doku BAĞLI kalır: tek program, tek varyant.
+    // Even when uUseMap = 0 the texture stays BOUND: one program, one variant.
     const fallback = maps.get(`${meshName}-${DEFAULT_MAP_SIZE}`) ?? null;
     sssMaterial.uniforms.uThickness.value =
       (set ?? fallback)?.r8 ?? sssMaterial.uniforms.uThickness.value;
@@ -268,7 +268,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     triangles = renderer.info.render.triangles;
   }
 
-  /** Sahneyi ara hedefe çizer, present geçişini ATLAR (geri okuma için). */
+  /** Draws the scene into the intermediate target, SKIPS present (for readback). */
   function drawLinearOnly(): void {
     renderer.info.reset();
     renderer.setRenderTarget(linear.target);
@@ -468,8 +468,8 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
         const frame = linear.read(renderer);
         const out = new Float32Array((frame.length / 4) * 2);
         for (let i = 0; i < frame.length / 4; i++) {
-          out[i * 2] = frame[i * 4]; // dokunun .g kanalı
-          out[i * 2 + 1] = frame[i * 4 + 1]; // dokunun .r kanalı
+          out[i * 2] = frame[i * 4]; // the texture's .g channel
+          out[i * 2 + 1] = frame[i * 4 + 1]; // the texture's .r channel
         }
         return out;
       });
@@ -478,7 +478,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     textureBytesFor(kind) {
       if (kind === "lambert") return 0;
       const size = mapSize ?? DEFAULT_MAP_SIZE;
-      // SSS tek kanallı (R8), physical iki kanallı (RG8) temsili kullanıyor.
+      // SSS uses the single-channel (R8) representation, physical the RG8 one.
       return kind === "sss" ? textureBytes(size, 1) : textureBytes(size, 2);
     },
 

@@ -1,8 +1,8 @@
 import type { Vec3 } from "../vec";
 
 // src/bake/intersect.ts
-// Üçgenler 9'ar float hâlinde düz bir dizide duruyor; i, üçgenin başlangıç indeksi.
-// Dönüş: kesişim mesafesi ya da Infinity. Çift yönlü — det'in işaretine bakmıyoruz.
+// Triangles sit in a flat array, 9 floats each; i is the triangle start index.
+// Returns: hit distance or Infinity. Two-sided — we ignore the sign of det.
 export function intersectTriangle(
   ox: number,
   oy: number,
@@ -27,7 +27,7 @@ export function intersectTriangle(
   const py = dz * e2x - dx * e2z;
   const pz = dx * e2y - dy * e2x;
   const det = e1x * px + e1y * py + e1z * pz;
-  if (Math.abs(det) < 1e-12) return Infinity; // ışın üçgenin düzlemine paralel
+  if (Math.abs(det) < 1e-12) return Infinity; // ray parallel to triangle plane
 
   const inv = 1 / det;
   const tx = ox - ax,
@@ -43,10 +43,10 @@ export function intersectTriangle(
   if (v < 0 || u + v > 1) return Infinity;
 
   const t = (e2x * qx + e2y * qy + e2z * qz) * inv;
-  return t > 1e-5 ? t : Infinity; // arkamızdaki ve ayağımızın dibindeki kesişim sayılmaz
+  return t > 1e-5 ? t : Infinity; // hits behind us or at our feet don't count
 }
 
-/** BVH eşdeğerlik testinin karşı tarafı: her üçgeni tek tek dene. */
+/** The other side of the BVH equivalence test: try every triangle one by one. */
 export function bruteForceIntersect(
   tris: Float32Array,
   origin: Vec3,

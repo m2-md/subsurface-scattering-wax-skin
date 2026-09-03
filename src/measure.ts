@@ -5,11 +5,11 @@ import { textureBytes } from "./pack";
 import type { MapSize, MaterialKind, Stage } from "./renderer";
 import { median, percentile, rmsDifference } from "./stats";
 
-// src/measure.ts (parça)
+// src/measure.ts (excerpt)
 export const POSES = [
-  // Işık nesnenin arkasında, kameranın tam karşısında.
+  // The light is behind the object, directly opposite the camera.
   { name: "back", lightAzimuthDeg: 178, lightElevationDeg: 10 },
-  // Işık kameranın omzunun üstünde: klasik anahtar ışık.
+  // The light is over the camera's shoulder: the classic key light.
   { name: "front", lightAzimuthDeg: 28, lightElevationDeg: 34 },
 ] as const;
 
@@ -23,8 +23,8 @@ export const CAMERA = {
 export type PoseName = (typeof POSES)[number]["name"] | "custom";
 
 /**
- * Azimut/eğim derecelerinden yüzeyden IŞIĞA doğru bakan birim vektör.
- * Üç materyal de ışığı bu tek fonksiyondan alıyor.
+ * Unit vector pointing from the surface TOWARD THE LIGHT, from azimuth/elevation
+ * degrees. All three materials get their light from this one function.
  */
 export function lightDirection(
   azimuthDeg: number,
@@ -139,7 +139,7 @@ function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
 
-/** GPU zaman damgaları kaba bir ızgaraya oturuyorsa rapora not düşülür. */
+/** If the GPU timestamps land on a coarse grid, a note goes into the report. */
 function looksQuantized(samples: readonly number[]): boolean {
   const ns = samples.map((s) => Math.round(s * 1e6)).filter((v) => v > 0);
   const unique = [...new Set(ns)];
@@ -172,7 +172,7 @@ async function runConfig(
   stage: Stage,
   frames = MEASURE_FRAMES,
 ): Promise<RunResult> {
-  // Materyal / harita değişimi ısınmadan ÖNCE yapılır.
+  // The material / map switch happens BEFORE the warm-up.
   for (let i = 0; i < MEASURE_WARMUP; i++) await stage.drawOnce(false);
 
   const wall: number[] = [];
@@ -192,9 +192,9 @@ async function runConfig(
 }
 
 /**
- * Deterministik ölçüm modu (`?measure=1`).
- * Arka tampon 960×540'a kilitli, kamera ve ışık sabit pozlarda, animasyon yok.
- * Sonuç TEK satır `MEASURE {json}` olarak konsola düşer.
+ * Deterministic measurement mode (`?measure=1`).
+ * Backbuffer locked to 960×540, camera and light at fixed poses, no animation.
+ * The result lands in the console as a SINGLE line, `MEASURE {json}`.
  */
 export async function runMeasurement(
   stage: Stage,
@@ -215,7 +215,7 @@ export async function runMeasurement(
     scale: 1,
   });
 
-  // --- REF: 512² haritayla çizilmiş referans kare. İlk çekilir. -------------
+  // --- REF: reference frame drawn with the 512² map. Taken first. -----------
   stage.setMaterial("sss");
   stage.setMapSize(REFERENCE_MAP);
   await stage.drawOnce(false);
@@ -225,7 +225,7 @@ export async function runMeasurement(
   let maskPixels = 0;
   for (const m of mask) maskPixels += m;
 
-  // Kalınlık kovaları: 256² harita, maske dışı NaN.
+  // Thickness buckets: 256² map, NaN outside the mask.
   stage.setMapSize(256);
   await stage.drawOnce(false);
   const thickness = stage.readThickness().slice();
@@ -258,7 +258,7 @@ export async function runMeasurement(
     quantized: false,
   };
 
-  // --- A: üç materyal yan yana ---------------------------------------------
+  // --- A: the three materials side by side ----------------------------------
   if (run("materials")) {
     const materials = {} as Record<MaterialKind, MaterialReport>;
     for (const kind of ["lambert", "sss", "physical"] as MaterialKind[]) {
@@ -293,7 +293,7 @@ export async function runMeasurement(
     report.materials = materials;
   }
 
-  // --- B: iki poz, dört satır (wrap = SSS'in MODE_WRAP modu) ---------------
+  // --- B: two poses, four rows (wrap = the SSS MODE_WRAP mode) --------------
   if (run("luminance")) {
     const rows: Record<string, { back: number; front: number }> = {};
     const configs: [string, MaterialKind, number][] = [
@@ -319,7 +319,7 @@ export async function runMeasurement(
     stage.setPose("back");
     report.luminance = rows;
 
-    // --- C: kalınlık kovaları --------------------------------------------
+    // --- C: thickness buckets -----------------------------------------------
     const bucketOf = async (kind: MaterialKind) => {
       stage.setMaterial(kind);
       stage.setMapSize(256);
@@ -347,7 +347,7 @@ export async function runMeasurement(
     };
   }
 
-  // --- D/E: harita çözünürlüğü ve kalınlık kaynağı -------------------------
+  // --- D/E: map resolution and thickness source -----------------------------
   if (run("maps")) {
     stage.setMaterial("sss");
     stage.setMode(MODE_FULL);
@@ -368,7 +368,7 @@ export async function runMeasurement(
     report.mapResolution = rows;
 
     const row256 = rows.find((r) => r.size === 256);
-    stage.setMapSize(null); // sabit kalınlık
+    stage.setMapSize(null); // constant thickness
     const constant = await runConfig(stage);
     allSamples.push(...constant.samples);
     const constantRms = round(
@@ -390,7 +390,7 @@ export async function runMeasurement(
     };
   }
 
-  // --- F: lob taraması -----------------------------------------------------
+  // --- F: lobe sweep --------------------------------------------------------
   if (run("lobe")) {
     stage.setMaterial("sss");
     stage.setMapSize(256);
@@ -417,7 +417,7 @@ export async function runMeasurement(
     report.lobe = { power, distortion };
   }
 
-  // --- G: yeşil kanal sondası ----------------------------------------------
+  // --- G: green-channel probe -----------------------------------------------
   if (run("channel")) {
     stage.setMapSize(256);
     const sample = (which: "r8" | "rg8") => {

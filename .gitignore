@@ -4,5 +4,5 @@ dist/
 .DS_Store
 *.log
 
-# fırın tarama koşularının çıktısı — demo kullanmaz
+# output of the bake sweep runs — the demo does not use it
 .bake-sweep/

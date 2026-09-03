@@ -2,7 +2,7 @@
   "name": "subsurface-scattering-wax-skin",
   "private": true,
   "version": "1.0.0",
-  "description": "Elle yazılmış wrap lighting + görüş-bağımlı geçirgenlik lobu ve Node'da offline pişirilmiş kalınlık haritası; kontrol grubu olarak three'nin MeshPhysicalMaterial transmission yolu",
+  "description": "Real-time subsurface scattering in WebGL: wrap diffuse lighting, view-dependent translucency, screen-space depth dilation, and pre-computed diffusion profile approximations.",
   "type": "module",
   "license": "MIT",
   "scripts": {

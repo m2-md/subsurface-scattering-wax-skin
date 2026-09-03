@@ -9,8 +9,8 @@ in vec3 vWorldNormal;
 
 layout(location = 0) out vec4 outColor;
 
-// Yalın referans: kalınlık okuması YOK, doku bağı YOK.
-// Doku baytı = 0 iddiası tam olarak buna dayanıyor.
+// Plain baseline: NO thickness read, NO texture binding.
+// The "texture bytes = 0" claim rests on exactly this.
 void main() {
   vec3 n = normalize(vWorldNormal);
   vec3 v = normalize(cameraPosition - vWorldPosition);

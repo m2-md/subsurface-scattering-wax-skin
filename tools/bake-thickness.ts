@@ -37,7 +37,7 @@ function parseFlags(argv: readonly string[]): Flags {
     const [, key, value] = match;
     if (key === "mesh") {
       if (value !== "candle" && value !== "blob") {
-        throw new Error(`bilinmeyen mesh: ${value}`);
+        throw new Error(`unknown mesh: ${value}`);
       }
       flags.mesh = value;
     } else if (key === "res") {
@@ -53,16 +53,16 @@ function parseFlags(argv: readonly string[]): Flags {
     }
   }
   if (!Number.isInteger(flags.res) || flags.res < 8) {
-    throw new Error(`geçersiz --res: ${flags.res}`);
+    throw new Error(`invalid --res: ${flags.res}`);
   }
   if (!Number.isInteger(flags.rays) || flags.rays < 1) {
-    throw new Error(`geçersiz --rays: ${flags.rays}`);
+    throw new Error(`invalid --rays: ${flags.rays}`);
   }
   return flags;
 }
 
 function bake(flags: Flags) {
-  // 1. Mesh üretimi — ölçüme dahil DEĞİL.
+  // 1. Mesh generation — NOT included in the measurement.
   const geometry = buildLathe(
     profileFor(flags.mesh, PROFILE_STEPS),
     LATHE_SEGMENTS,
@@ -70,7 +70,7 @@ function bake(flags: Flags) {
   const tris = trianglesFromGeometry(geometry);
   const triangles = tris.length / 9;
 
-  // Işın uzunluğu tavanı: gövdenin köşegeni. Kaçan ışın buna kırpılır.
+  // Ray-length ceiling: the body's diagonal. An escaped ray is clamped to it.
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
   const maxChord =
@@ -82,13 +82,13 @@ function bake(flags: Flags) {
           box.max.z - box.min.z,
         );
 
-  // 2. BVH kurulumu. Toplam süre buradan sayılıyor: mesh üretimi hariç.
+  // 2. BVH build. Total time is counted from here on: mesh generation excluded.
   const totalStart = performance.now();
   const bvhStart = performance.now();
   const bvh = flags.bvh ? new Bvh(tris, LEAF_SIZE) : null;
   const bvhBuildMs = performance.now() - bvhStart;
 
-  // 3. UV rasterizasyonu.
+  // 3. UV rasterization.
   const rasterStart = performance.now();
   const { positions, normals, filled, rasterized } = bakeAttributes(
     geometry,
@@ -99,7 +99,7 @@ function bake(flags: Flags) {
   const texelCount = flags.res * flags.res;
   const rays = flags.rays;
 
-  // 4. Işın döngüsü — çekirdeği src/bake/trace.ts'te, testlerin erişebildiği yerde.
+  // 4. Ray loop — the core lives in src/bake/trace.ts, where tests can reach it.
   const rayStart = performance.now();
   const { raw, escaped } = traceThickness({
     tris,
@@ -117,7 +117,7 @@ function bake(flags: Flags) {
   const texelsDilated = dilate(raw, filled, flags.res, flags.dilate);
   const dilateMs = performance.now() - dilateStart;
 
-  // 6. Normalizasyon + yazım.
+  // 6. Normalization + writing.
   const writeStart = performance.now();
   let maxRaw = 0;
   for (let i = 0; i < texelCount; i++) {
@@ -200,9 +200,9 @@ function round(x: number, digits: number): number {
 const flags = parseFlags(process.argv.slice(2));
 const { report, drift } = bake(flags);
 if (drift > 0.02) {
-  // Aşama toplamı ile duvar saati %2'den fazla ayrışıyorsa ölçüm kirli.
+  // If the stage sum and the wall clock diverge by more than 2%, the run is dirty.
   console.error(
-    `UYARI: aşama toplamı ile toplam süre %${(drift * 100).toFixed(1)} ayrışıyor`,
+    `WARNING: stage sum and total time diverge by ${(drift * 100).toFixed(1)}%`,
   );
 }
 console.log(`BAKE ${JSON.stringify(report)}`);

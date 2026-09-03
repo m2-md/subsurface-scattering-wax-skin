@@ -1,6 +1,6 @@
 import type { Vec3 } from "../src/vec";
 
-/** Testler için deterministik geometri üreteçleri. `three` KULLANILMAZ. */
+/** Deterministic geometry generators for the tests. `three` is NOT used. */
 
 function normalize(v: Vec3): Vec3 {
   const len = Math.hypot(v[0], v[1], v[2]);
@@ -11,7 +11,7 @@ function midpoint(a: Vec3, b: Vec3): Vec3 {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
 }
 
-/** Birim küreye yansıtılmış ikosahedron. Tohum yok, koşudan koşuya aynı. */
+/** Icosahedron projected onto the unit sphere. No seed, same every run. */
 export function icosphereTriangles(subdivisions = 1): Float32Array {
   const t = (1 + Math.sqrt(5)) / 2;
   const base: Vec3[] = [
@@ -76,7 +76,7 @@ export function icosphereTriangles(subdivisions = 1): Float32Array {
   return out;
 }
 
-/** Orijinde merkezli küp; `half` yarım kenar uzunluğu. 12 üçgen. */
+/** Cube centred at the origin; `half` is the half edge length. 12 triangles. */
 export function boxTriangles(half = 1): Float32Array {
   const v: Vec3[] = [
     [-half, -half, -half],

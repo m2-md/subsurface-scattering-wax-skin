@@ -3,17 +3,17 @@ import { rasterizeTriangle } from "./raster";
 import type { Vec2 } from "../vec";
 
 export interface BakedAttributes {
-  /** Texel başına dünya konumu (3 float). */
+  /** World position per texel (3 floats). */
   positions: Float32Array;
-  /** Texel başına birim normal (3 float). */
+  /** Unit normal per texel (3 floats). */
   normals: Float32Array;
-  /** 1 = rasterizasyonda dolduruldu. */
+  /** 1 = filled during rasterization. */
   filled: Uint8Array;
-  /** Kaç texel doldu (aynı texel birden çok üçgenden gelirse bir kez sayılır). */
+  /** How many texels filled (a texel from multiple triangles counts once). */
   rasterized: number;
 }
 
-/** Üçgen başına 9 float: BVH ve kaba kuvvet kesişimi bu düzeni bekliyor. */
+/** 9 floats per triangle: BVH and brute force intersect expect this layout. */
 export function trianglesFromGeometry(geometry: BufferGeometry): Float32Array {
   const position = geometry.getAttribute("position");
   const index = geometry.getIndex();
@@ -29,10 +29,10 @@ export function trianglesFromGeometry(geometry: BufferGeometry): Float32Array {
 }
 
 /**
- * Mesh'i UV uzayında rasterize edip her texel'in altındaki yüzey noktasını ve
- * normalini baryantrik ağırlıklarla aradeğerler. Y ekseninde çevirme YOK:
- * `THREE.DataTexture` varsayılan olarak `flipY = false` ile geldiği için
- * dizinin ilk satırı GL tarafında `v = 0`; fırın da öyle kabul ediyor.
+ * Rasterizes the mesh in UV space and interpolates, with barycentric weights,
+ * the surface point and normal under each texel. NO flip on the Y axis:
+ * because `THREE.DataTexture` defaults to `flipY = false`, the first row of the
+ * array is `v = 0` on the GL side; the baker assumes the same.
  */
 export function bakeAttributes(
   geometry: BufferGeometry,
@@ -103,7 +103,7 @@ export function bakeAttributes(
       normals[i * 3 + 1] = ny / len;
       normals[i * 3 + 2] = nz / len;
     } else {
-      // Kutup üçgenlerinde aradeğerlenen normal sıfıra yakınsayabiliyor.
+      // On pole triangles the interpolated normal can converge to zero.
       normals[i * 3] = 0;
       normals[i * 3 + 1] = 1;
       normals[i * 3 + 2] = 0;

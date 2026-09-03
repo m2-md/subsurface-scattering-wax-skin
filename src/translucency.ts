@@ -1,7 +1,7 @@
 import { add, clamp, dot, normalize, scale } from "./vec";
 import type { Vec3 } from "./vec";
 
-/** `backTranslucency` lobunun parametreleri. GLSL tarafında ayrı uniform'lar. */
+/** Parameters of the `backTranslucency` lobe. Separate uniforms in GLSL. */
 export interface LobeParams {
   distortion: number;
   power: number;
@@ -11,9 +11,9 @@ export interface LobeParams {
 }
 
 /**
- * `src/shaders/lib/translucency.glsl` içindeki `wrapDiffuse`'un CPU ikizi.
- * Pay terminatörü kaydırır, payda toplam enerjiyi yerinde tutar.
- * wrap = 0 verildiğinde fonksiyon birebir Lambert'e döner.
+ * CPU twin of `wrapDiffuse` in `src/shaders/lib/translucency.glsl`.
+ * The numerator shifts the terminator, the denominator keeps total energy put.
+ * Given wrap = 0 the function collapses exactly to Lambert.
  */
 export function wrapDiffuse(ndl: number, wrap: number): number {
   const w = Math.max(wrap, 0);
@@ -21,9 +21,9 @@ export function wrapDiffuse(ndl: number, wrap: number): number {
 }
 
 /**
- * `src/shaders/lib/translucency.glsl` içindeki `backTranslucency`'nin CPU ikizi.
- * lightDir: yüzeyden IŞIĞA doğru, birim. viewDir: yüzeyden KAMERAYA doğru, birim.
- * thickness: [0,1] aralığında normalize edilmiş yol uzunluğu (1 = en kalın).
+ * CPU twin of `backTranslucency` in `src/shaders/lib/translucency.glsl`.
+ * lightDir: from surface to LIGHT, unit. viewDir: from surface to CAMERA, unit.
+ * thickness: path length normalized to [0,1] (1 = thickest).
  */
 export function backTranslucency(
   lightDir: Vec3,
@@ -32,11 +32,11 @@ export function backTranslucency(
   thickness: number,
   params: LobeParams,
 ): number {
-  // Işığı normal boyunca biraz bükerek "içeriden çıkıyormuş" hissi veriyoruz.
+  // We bend the light a bit along the normal for an "it comes from inside" feel.
   const h = normalize(add(lightDir, scale(normal, params.distortion)));
   const lobe =
     Math.pow(clamp(dot(viewDir, [-h[0], -h[1], -h[2]]), 0, 1), params.power) *
     params.scale;
-  // Beer-Lambert: yol uzadıkça geçen ışık üstel olarak azalır.
+  // Beer-Lambert: as the path grows, transmitted light falls off exponentially.
   return (lobe + params.ambient) * Math.exp(-params.absorption * thickness);
 }

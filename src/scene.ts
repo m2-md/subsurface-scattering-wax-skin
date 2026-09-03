@@ -17,9 +17,9 @@ export interface SceneBundle {
 }
 
 /**
- * Mütevazı sahne: tek özne, arkada bir pano, altında bir zemin.
- * Pano ve zemin `MeshBasicMaterial` — aydınlatmaya girmiyorlar ki üç materyalin
- * draw call farkı YALNIZCA `transmission`'ın ikinci geçişinden gelsin.
+ * A modest scene: one subject, a backdrop behind, a floor below. Backdrop and
+ * floor are `MeshBasicMaterial` — outside the lighting, so the draw call gap
+ * between the three materials comes ONLY from `transmission`'s second pass.
  */
 export function buildScene(): SceneBundle {
   const scene = new THREE.Scene();
@@ -52,8 +52,8 @@ export function buildScene(): SceneBundle {
   floor.position.y = -1.02;
   scene.add(floor);
 
-  // Yalnız MeshPhysicalMaterial yolu için. Elle yazdığımız materyal aynı yönü
-  // `uLightDirection` uniform'u olarak görüyor.
+  // Only for the MeshPhysicalMaterial path. Our hand-written material sees the
+  // same direction as the `uLightDirection` uniform.
   const light = new THREE.DirectionalLight(0xffffff, 3);
   light.position.set(0, 0, 5);
   scene.add(light);

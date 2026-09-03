@@ -1,4 +1,4 @@
-/** 4 komşu. Çapraz komşu almıyoruz: dilate köşeden değil kenardan yayılsın. */
+/** 4 neighbours. No diagonals: dilate should spread by edge, not by corner. */
 export const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
   [-1, 0],
@@ -7,7 +7,7 @@ export const NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 // src/bake/dilate.ts
-// Dolu komşuların ortalamasını boş texel'e taşır. Kaç texel dolduğunu döndürür.
+// Moves the mean of filled neighbours into empty texels. Returns the fill count.
 export function dilate(
   values: Float32Array,
   filled: Uint8Array,

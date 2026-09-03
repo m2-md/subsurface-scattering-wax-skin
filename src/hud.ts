@@ -9,27 +9,27 @@ export interface Hud {
   showMeasureReport(report: MeasureReport): void;
 }
 
-/** ÖLÇÜM: her karede donanımdan/saatten okunan değerler. */
+/** MEASURED: values read from the hardware/clock every frame. */
 const MEASURED = [
   ["fps", "FPS"],
-  ["frame", "kare ms"],
+  ["frame", "frame ms"],
   ["gpu", "GPU ms"],
   ["calls", "draw call"],
-  ["tris", "üçgen"],
+  ["tris", "triangles"],
 ] as const;
 
-/** YAPISAL: kullanıcının seçtiği, ölçülmeyen ayarlar. */
+/** STRUCTURAL: settings the user picks; these are not measured. */
 const STRUCTURAL = [
-  ["material", "materyal"],
-  ["map", "kalınlık"],
-  ["mode", "mod"],
-  ["azimuth", "ışık azimutu"],
-  ["size", "arka tampon"],
+  ["material", "material"],
+  ["map", "thickness"],
+  ["mode", "mode"],
+  ["azimuth", "light azimuth"],
+  ["size", "backbuffer"],
 ] as const;
 
 const MATERIAL_LABEL: Record<string, string> = {
   lambert: "Lambert",
-  sss: "SSS (elle)",
+  sss: "SSS (hand)",
   physical: "Physical",
 };
 
@@ -65,15 +65,15 @@ export function createHud(root: HTMLElement): Hud {
   root.textContent = "";
   const cells = new Map<string, HTMLElement>();
 
-  const measured = group("Ölçüm", "ÖLÇÜM");
+  const measured = group("Measured", "MEASURED");
   for (const [key, label] of MEASURED) cells.set(key, row(measured, label));
 
-  const structural = group("Yapılandırma", "YAPISAL");
+  const structural = group("Configuration", "STRUCTURAL");
   for (const [key, label] of STRUCTURAL) cells.set(key, row(structural, label));
 
   const note = document.createElement("div");
   note.className = "hud-note";
-  note.textContent = "GPU saati: yokluyor…";
+  note.textContent = "GPU clock: probing…";
 
   root.append(measured, structural, note);
 
@@ -96,9 +96,9 @@ export function createHud(root: HTMLElement): Hud {
           : `${stats.frameMs.toFixed(2)} ms (rAF)`,
       );
       set("calls", String(stats.drawCalls));
-      set("tris", stats.triangles.toLocaleString("tr-TR"));
+      set("tris", stats.triangles.toLocaleString("en-US"));
       set("material", MATERIAL_LABEL[stats.material] ?? stats.material);
-      set("map", stats.mapSize === null ? "sabit 0,5" : `${stats.mapSize}²`);
+      set("map", stats.mapSize === null ? "constant 0.5" : `${stats.mapSize}²`);
       set("mode", MODE_LABELS[stats.mode] ?? String(stats.mode));
       set("azimuth", `${stats.lightAzimuthDeg.toFixed(0)}°`);
       set("size", `${stats.width}×${stats.height}`);
@@ -108,8 +108,8 @@ export function createHud(root: HTMLElement): Hud {
       timerSource = source;
       note.textContent =
         source === "gpu"
-          ? "GPU saati: EXT_disjoint_timer_query_webgl2"
-          : "GPU saati: uzantı yok → kare süresi (rAF) raporlanıyor";
+          ? "GPU clock: EXT_disjoint_timer_query_webgl2"
+          : "GPU clock: no extension → reporting frame time (rAF)";
     },
 
     setNote(text) {
@@ -117,7 +117,7 @@ export function createHud(root: HTMLElement): Hud {
     },
 
     showMeasureReport(report) {
-      const unit = report.timerExt ? "GPU ms" : "kare ms";
+      const unit = report.timerExt ? "GPU ms" : "frame ms";
       if (report.materials) {
         const sss = report.materials.sss;
         set(
@@ -125,10 +125,10 @@ export function createHud(root: HTMLElement): Hud {
           `${(report.timerExt ? sss.gpuMsMedian : sss.wallMsMedian).toFixed(3)} ${unit}`,
         );
         set("calls", String(sss.drawCalls));
-        set("tris", sss.triangles.toLocaleString("tr-TR"));
+        set("tris", sss.triangles.toLocaleString("en-US"));
       }
       set("size", `${report.width}×${report.height}`);
-      note.textContent = `ÖLÇÜM bitti · ${report.gpu} · ${report.frames} kare · maske ${report.maskPixels} px · konsoldaki MEASURE satırına bakın`;
+      note.textContent = `MEASUREMENT done · ${report.gpu} · ${report.frames} frames · mask ${report.maskPixels} px · see the MEASURE line in the console`;
     },
   };
 }

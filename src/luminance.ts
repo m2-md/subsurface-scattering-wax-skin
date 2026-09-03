@@ -2,19 +2,19 @@ export const LUMA_R = 0.2126;
 export const LUMA_G = 0.7152;
 export const LUMA_B = 0.0722;
 
-/** Rec.709 bağıl parlaklık. Girdi DOĞRUSAL olmalı; sRGB kodlu değil. */
+/** Rec.709 relative luminance. Input must be LINEAR, not sRGB-encoded. */
 export function relativeLuminance(r: number, g: number, b: number): number {
   return LUMA_R * r + LUMA_G * g + LUMA_B * b;
 }
 
 /**
- * Maskeli ortalama. `values` RGBA sıralı doğrusal kare, `mask` piksel başına
- * bir bayt (0 = dışarıda). Maske boşsa 0 döner — NaN yaymak yerine sözleşme.
+ * Masked mean. `values` is a linear frame in RGBA order, `mask` one byte per
+ * pixel (0 = outside). Empty mask returns 0 — a contract, not a spreading NaN.
  */
 export function maskedMean(values: Float32Array, mask: Uint8Array): number {
   const pixels = mask.length;
   if (values.length < pixels * 4) {
-    throw new Error("kare tamponu maskeden küçük");
+    throw new Error("frame buffer smaller than mask");
   }
   let sum = 0;
   let count = 0;
@@ -38,9 +38,9 @@ export interface BucketMeans {
 }
 
 /**
- * Mesh piksellerini kalınlığa göre iki kovaya ayırıp her kovada ortalama
- * parlaklığa bakar. Sınırlar KESİN eşitsizlik: `thinMax` ince kovaya,
- * `thickMin` kalın kovaya girmez.
+ * Splits the mesh pixels into two buckets by thickness and looks at the mean
+ * luminance in each bucket. The bounds are STRICT inequalities: `thinMax` does
+ * not enter the thin bucket, `thickMin` does not enter the thick one.
  */
 export function bucketMeans(
   lum: Float32Array,
@@ -49,7 +49,7 @@ export function bucketMeans(
   thickMin: number,
 ): BucketMeans {
   if (lum.length !== thickness.length) {
-    throw new Error("parlaklık ve kalınlık dizileri farklı boyutta");
+    throw new Error("luminance and thickness arrays have different sizes");
   }
   let thinSum = 0;
   let thinCount = 0;
@@ -57,7 +57,7 @@ export function bucketMeans(
   let thickCount = 0;
   for (let i = 0; i < lum.length; i++) {
     const t = thickness[i];
-    if (Number.isNaN(t)) continue; // maske dışı
+    if (Number.isNaN(t)) continue; // outside the mask
     if (t < thinMax) {
       thinSum += lum[i];
       thinCount++;

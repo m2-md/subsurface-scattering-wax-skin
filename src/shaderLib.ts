@@ -1,9 +1,9 @@
 import translucencyChunk from "./shaders/lib/translucency.glsl?raw";
 
 /**
- * Paylaşılan GLSL chunk'ları. three, `glslVersion: THREE.GLSL3` verildiğinde
- * `#version 300 es` satırını ve yerleşik uniform/attribute tanımlarını kaynağın
- * BAŞINA kendisi ekliyor; bu yüzden chunk'lar TS tarafında birleştirilip
- * fragment kaynağının önüne konuyor, dosyalara elle `#version` yazılmıyor.
+ * Shared GLSL chunks. When given `glslVersion: THREE.GLSL3`, three itself
+ * prepends the `#version 300 es` line and the built-in uniform/attribute
+ * declarations to the FRONT of the source; that is why the chunks are joined on
+ * the TS side and put before the fragment source, with no `#version` by hand.
  */
 export const LIB = [translucencyChunk].join("\n");

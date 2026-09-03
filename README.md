@@ -1,128 +1,131 @@
-# Yüzey altı saçılma — mum ve ten (wrap + geçirgenlik + pişmiş kalınlık haritası)
+# Subsurface scattering — wax and skin (wrap + transmission + baked thickness map)
 
-"İçinden Işık Geçen Malzeme: Mum ve Ten için Gerçek Zamanlı Subsurface
-Scattering" makalesinin çalışan kodu. `three@0.185.1` + `WebGLRenderer` + ham
+Working code for the article "Material That Light Passes Through: Real-Time
+Subsurface Scattering for Wax and Skin". `three@0.185.1` + `WebGLRenderer` + raw
 GLSL ES 3.00 (`ShaderMaterial` + `glslVersion: THREE.GLSL3`), TypeScript, Vite,
-vitest. Fırın `vite-node` ile koşan bir Node CLI'ı.
+vitest. The bake is a Node CLI that runs under `vite-node`.
 
-Saçılma matematiğinin tamamı elle yazılmış; three burada sahne grafiği ve GL
-durum makinesi. **Tek istisna kontrol grubudur:** `MeshPhysicalMaterial`
-`transmission` yolu bilerek hazır kullanılıyor, çünkü ölçtüğümüz şey o.
+All of the scattering math is hand-written; three is the scene graph and the GL
+state machine here. **The one exception is the control group:** the
+`MeshPhysicalMaterial` `transmission` path is deliberately used off the shelf,
+because that is the thing we are measuring.
 
-Doku dosyası (PNG/JPG) yok: fırın ham `.bin` + meta JSON üretiyor, tarayıcı
-`DataTexture` ile yüklüyor. Görsel bağımlılık sıfır.
+No texture files (PNG/JPG): the bake produces raw `.bin` + a meta JSON, and the
+browser loads it with `DataTexture`. Zero image dependencies.
 
-Aynı sahne üç materyalle çiziliyor ve GPU saatiyle yan yana ölçülüyor:
+The same scene is drawn with three materials and measured side by side on the
+GPU clock:
 
-| Materyal   | Ne yapıyor                                                                   |
+| Material   | What it does                                                                 |
 | ---------- | ---------------------------------------------------------------------------- |
-| `lambert`  | Yalın referans. `max(dot(n, l), 0)` + specular. Kalınlık okuması YOK         |
-| `sss`      | Elle yazılmış wrap lighting + görüş-bağımlı geçirgenlik lobu + R8 harita     |
-| `physical` | three'nin `MeshPhysicalMaterial` `transmission` yolu + RG8 kalınlık haritası |
+| `lambert`  | Plain baseline. `max(dot(n, l), 0)` + specular. NO thickness read            |
+| `sss`      | Hand-written wrap lighting + view-dependent transmission lobe + R8 map       |
+| `physical` | three's `MeshPhysicalMaterial` `transmission` path + RG8 thickness map       |
 
-## Ne içerir
+## What is in here
 
-- **Saf mantık katmanı** — tarayıcı tanımıyor, `vitest` ile test ediliyor:
-  `src/translucency.ts` (GLSL'in CPU ikizi), `src/bake/raster.ts`,
+- **Pure logic layer** — knows nothing about the browser, tested with `vitest`:
+  `src/translucency.ts` (the CPU twin of the GLSL), `src/bake/raster.ts`,
   `src/bake/dilate.ts`, `src/bake/sampling.ts`, `src/bake/intersect.ts`,
   `src/bake/bvh.ts`, `src/mesh.ts`, `src/pack.ts`, `src/half.ts`,
   `src/luminance.ts`, `src/stats.ts`, `src/viewport.ts`.
-- **Offline fırın** (`tools/bake-thickness.ts`) — UV uzayında rasterizasyon,
-  texel başına konum/normal, `-N` yarım küresine kosinüs ağırlıklı Hammersley
-  ışınları, BVH'li Möller-Trumbore kesişimi, dilate, normalizasyon, `.bin` +
-  meta JSON. `Math.random` YOK: koşudan koşuya bit birebir aynı çıktı.
-- **Elle yazılmış SSS materyali** (`src/shaders/sss.frag.glsl` +
-  `src/shaders/lib/translucency.glsl`) — `wrapDiffuse` ve `backTranslucency`.
-  Dört mod: tam / kalınlık / geçirgenlik / wrap.
-- **Kontrol grubu** (`src/materials/physical.ts`) — `transmission: 1`,
-  `thicknessMap` RG8 kopyasına bağlı.
-- **Doğrusal boru hattı** — bütün çizim `HalfFloatType` bir ara hedefe,
-  sRGB kodlaması yalnız `present.frag.glsl` geçişinde. Parlaklık ölçümü ara
-  hedeften, present'ten ÖNCE alınıyor.
-- **GPU saati** (`src/timer.ts`) — `EXT_disjoint_timer_query_webgl2`, sorgu
-  kuyruğu, `GPU_DISJOINT_EXT` kontrolü. Uzantı yoksa çıktı bunu açıkça söyler
-  (`timerExt: false`) ve GPU ms yerine kare süresi raporlanır.
-- **Deterministik ölçüm modu** (`src/measure.ts`) — `?measure=1`.
+- **Offline bake** (`tools/bake-thickness.ts`) — rasterization in UV space,
+  position/normal per texel, cosine-weighted Hammersley rays over the `-N`
+  hemisphere, Möller-Trumbore intersection with a BVH, dilate, normalization,
+  `.bin` + meta JSON. NO `Math.random`: bit-identical output from run to run.
+- **Hand-written SSS material** (`src/shaders/sss.frag.glsl` +
+  `src/shaders/lib/translucency.glsl`) — `wrapDiffuse` and `backTranslucency`.
+  Four modes: full / thickness / transmission / wrap.
+- **Control group** (`src/materials/physical.ts`) — `transmission: 1`, with
+  `thicknessMap` bound to the RG8 copy.
+- **Linear pipeline** — everything draws into a `HalfFloatType` intermediate
+  target, and sRGB encoding happens only in the `present.frag.glsl` pass. The
+  luminance measurement is taken from the intermediate target, BEFORE present.
+- **GPU clock** (`src/timer.ts`) — `EXT_disjoint_timer_query_webgl2`, a query
+  queue, a `GPU_DISJOINT_EXT` check. If the extension is missing the output says
+  so explicitly (`timerExt: false`) and frame time is reported instead of GPU ms.
+- **Deterministic measurement mode** (`src/measure.ts`) — `?measure=1`.
 
-## Kurulum
+## Setup
 
 ```bash
 npm install
 ```
 
-## Test (tarayıcısız, deterministik)
+## Tests (no browser, deterministic)
 
 ```bash
 npm test
 ```
 
-**139 test yeşil** (15 dosya):
+**139 tests green** (15 files):
 
-| Dosya                       | Ne sınıyor                                                                  | Test |
+| File                        | What it checks                                                              | Tests |
 | --------------------------- | --------------------------------------------------------------------------- | ---- |
-| `test/translucency.test.ts` | wrap özdeşliği (`w = 0` → Lambert), terminatör konumu, `1/(1+w)` tepe, lob  | 12   |
-| `test/sampling.test.ts`     | `radicalInverse2` ilk 8 değer, Hammersley, ortonormal baz (kutuplar dahil)  | 9    |
-| `test/intersect.test.ts`    | çift yönlü Möller-Trumbore, `1e-5` eşiği, dejenere üçgen, kaba kuvvet       | 11   |
-| `test/bvh.test.ts`          | kaba kuvvetle 12 hane eşdeğerlik, eksene paralel/neredeyse paralel ışın, `leafSize` | 15   |
-| `test/trace.test.ts`        | kaçan ışın sayacı: kapalı gövdede 0, delikli meshte > 0, BVH ≡ kaba kuvvet  | 4    |
-| `test/raster.test.ts`       | alanla orantılı texel, baryantrik toplam 1, yarım texel kaydırması          | 7    |
-| `test/dilate.test.ts`       | kopya alınmadan tek geçişte bulaşma (regresyon), halka genişlemesi          | 9    |
-| `test/mesh.test.ts`         | profillerin ilk/son noktası `x = 0`, monotonluk, `smoothstep`               | 11   |
-| `test/pack.test.ts`         | `textureBytes` bilinen boyutlar, mipmap zinciri 4/3                         | 6    |
-| `test/half.test.ts`         | `halfToFloat` bilinen desenler, subnormal, ±Infinity, NaN                   | 6    |
-| `test/luminance.test.ts`    | Rec.709 katsayıları, maskeli ortalama, kova sınırları (KESİN eşitsizlik)    | 11   |
-| `test/viewport.test.ts`     | dpr/ölçek kelepçeleri, piksel bütçesi                                       | 8    |
-| `test/stats.test.ts`        | medyan/yüzdelik uç durumları, RMS, alfa yok sayma                           | 13   |
-| `test/shaders.test.ts`      | gerçek `?raw` kaynaklar: `#version` yok, MODE paritesi, `.r` vs `.g`        | 15   |
-| `test/parity.test.ts`       | GLSL ↔ TS ikizinin analitik yeniden türetmeyle örtüşmesi                    | 2    |
+| `test/translucency.test.ts` | wrap identity (`w = 0` → Lambert), terminator position, `1/(1+w)` peak, lobe | 12   |
+| `test/sampling.test.ts`     | first 8 values of `radicalInverse2`, Hammersley, orthonormal basis (poles too) | 9   |
+| `test/intersect.test.ts`    | double-sided Möller-Trumbore, the `1e-5` threshold, degenerate triangle, brute force | 11 |
+| `test/bvh.test.ts`          | 12-digit equivalence with brute force, axis-aligned / near-parallel ray, `leafSize` | 15 |
+| `test/trace.test.ts`        | escaped-ray counter: 0 on a closed body, > 0 on a mesh with a hole, BVH ≡ brute force | 4 |
+| `test/raster.test.ts`       | texel count proportional to area, barycentrics sum to 1, half-texel offset  | 7    |
+| `test/dilate.test.ts`       | bleed in a single pass without a copy (regression), ring expansion          | 9    |
+| `test/mesh.test.ts`         | first/last point of the profiles at `x = 0`, monotonicity, `smoothstep`     | 11   |
+| `test/pack.test.ts`         | `textureBytes` for known sizes, 4/3 mipmap chain                            | 6    |
+| `test/half.test.ts`         | `halfToFloat` on known patterns, subnormal, ±Infinity, NaN                  | 6    |
+| `test/luminance.test.ts`    | Rec.709 coefficients, masked mean, bucket edges (STRICT inequality)         | 11   |
+| `test/viewport.test.ts`     | dpr/scale clamps, pixel budget                                              | 8    |
+| `test/stats.test.ts`        | median/percentile edge cases, RMS, alpha ignored                            | 13   |
+| `test/shaders.test.ts`      | the real `?raw` sources: no `#version`, MODE parity, `.r` vs `.g`           | 15   |
+| `test/parity.test.ts`       | the GLSL ↔ TS twin matching an analytic re-derivation                       | 2    |
 
-Hiçbir test dosyası `document`, `window`, `navigator`, `WebGL2RenderingContext`
-ya da `performance` referansı içermez; `three` de import edilmez.
+No test file references `document`, `window`, `navigator`,
+`WebGL2RenderingContext` or `performance`; `three` is not imported either.
 
-## Fırın
+## Bake
 
-Kalınlık haritaları **repoda pişmiş geliyor** (`public/thickness/`), demo
-`npm run bake` koşulmadan da açılır. Kendiniz pişirmek için:
+The thickness maps **ship baked in the repo** (`public/thickness/`), so the demo
+opens without running `npm run bake`. To bake them yourself:
 
 ```bash
 npm run bake -- --mesh=candle --res=256 --rays=32
 # BAKE {"mesh":"candle","triangles":9600,"resolution":256,...}
 ```
 
-Bayraklar: `--mesh=candle|blob`, `--res=<int>` (256), `--rays=<int>` (32),
+Flags: `--mesh=candle|blob`, `--res=<int>` (256), `--rays=<int>` (32),
 `--bvh=on|off` (on), `--dilate=<int>` (4), `--out=<dir>` (`public/thickness`).
 
-Yediyi birden koşmak ve her satırı `measurements-<tarih>.jsonl`'a eklemek için:
+To run all seven at once and append each line to `measurements-<date>.jsonl`:
 
 ```bash
 npm run bake:all
 ```
 
-**Determinizm kontrolü** (`Math.random` yok, Hammersley var):
+**Determinism check** (no `Math.random`, Hammersley instead):
 
 ```bash
 npm run bake -- --mesh=candle --res=256 --rays=32 | grep -o '"sha256":"[^"]*"'
 shasum -a 256 public/thickness/candle-256.bin
-# iki koşuda birebir aynı özet
+# the exact same digest across two runs
 ```
 
-`candle-256.bin` tam **65536 bayt** (256 × 256 × 1). Meta JSON yanında.
+`candle-256.bin` is exactly **65536 bytes** (256 × 256 × 1). The meta JSON sits
+next to it.
 
-### Fırını besleyen komutlar (makale tablolarına birebir)
+### The commands that feed the bake (one-to-one with the article's tables)
 
-| Komut                                                                         | Hangi tabloyu besler                              |
+| Command                                                                       | Which table it feeds                              |
 | ----------------------------------------------------------------------------- | ------------------------------------------------- |
-| `npm run bake -- --mesh=candle --res=128 --rays=32`                           | Fırın tablosu 128² satırı                         |
-| `npm run bake -- --mesh=candle --res=256 --rays=32`                           | 256² satırı + kapsama/dilate/kaçan ışın cümleleri |
-| `npm run bake -- --mesh=candle --res=512 --rays=32`                           | 512² satırı + demo referans haritası              |
-| `npm run bake -- --mesh=candle --res=256 --rays=16 --out=.bake-sweep`         | Işın sayısı cümlesi (alt uç)                      |
-| `npm run bake -- --mesh=candle --res=256 --rays=64 --out=.bake-sweep`         | Işın sayısı cümlesi (üst uç)                      |
-| `npm run bake -- --mesh=candle --res=64 --rays=8 --bvh=off --out=.bake-sweep` | BVH tablosu, kaba kuvvet satırı                   |
-| `npm run bake -- --mesh=candle --res=64 --rays=8 --out=.bake-sweep`           | BVH tablosu, ağaç satırı                          |
+| `npm run bake -- --mesh=candle --res=128 --rays=32`                           | Bake table, 128² row                              |
+| `npm run bake -- --mesh=candle --res=256 --rays=32`                           | 256² row + the coverage/dilate/escaped-ray claims |
+| `npm run bake -- --mesh=candle --res=512 --rays=32`                           | 512² row + the demo's reference map               |
+| `npm run bake -- --mesh=candle --res=256 --rays=16 --out=.bake-sweep`         | Ray-count sentence (low end)                      |
+| `npm run bake -- --mesh=candle --res=256 --rays=64 --out=.bake-sweep`         | Ray-count sentence (high end)                     |
+| `npm run bake -- --mesh=candle --res=64 --rays=8 --bvh=off --out=.bake-sweep` | BVH table, brute-force row                        |
+| `npm run bake -- --mesh=candle --res=64 --rays=8 --out=.bake-sweep`           | BVH table, tree row                               |
 
-Tarama koşuları `--out=.bake-sweep` alır, çünkü aynı `--res=256` dosya adına
-yazıp demonun kullandığı rays=32 haritasının üstüne yazarlardı. `.bake-sweep/`
-`.gitignore`'da.
+The sweep runs take `--out=.bake-sweep`, because they would otherwise write to
+the same `--res=256` filename and overwrite the rays=32 map the demo uses.
+`.bake-sweep/` is in `.gitignore`.
 
 ## Demo
 
@@ -131,173 +134,183 @@ npm run dev
 # http://localhost:5173/
 ```
 
-`file://` ile açmayın: Vite'ın `?raw` import'u ve `public/` yolu çalışmaz, boş
-ekran gelir.
+Do not open it with `file://`: Vite's `?raw` import and the `public/` path will
+not work, and you get a blank screen.
 
-Kontroller: materyal, kalınlık kaynağı (128²/256²/512²/sabit), mod, ışık
-azimutu/yüksekliği, `wrap`, `power`, `distortion`, `absorption`, mesh, çözünürlük
-ölçeği, Dur/Devam. Kamera fareyle yörünge, tekerlekle mesafe.
+Controls: material, thickness source (128²/256²/512²/constant), mode, light
+azimuth/elevation, `wrap`, `power`, `distortion`, `absorption`, mesh, resolution
+scale, Pause/Resume. Camera orbits with the mouse, distance with the wheel.
 
-HUD hücreleri iki gruba ayrılmış: **ÖLÇÜM** (FPS, kare ms, GPU ms, draw call,
-üçgen) donanımdan okunuyor; **YAPISAL** (materyal, harita boyutu, mod, ışık
-azimutu, arka tampon) sizin seçiminiz.
+The HUD cells are split into two groups: **MEASURED** (FPS, frame ms, GPU ms,
+draw call, triangles) is read from the hardware; **STRUCTURAL** (material, map
+size, mode, light azimuth, backbuffer) is your own choice.
 
-### İşaret sözleşmesi (tek cümle)
+### The sign convention (one sentence)
 
-`uLightDirection` yüzeyden **IŞIĞA** doğru bakan birim vektördür. Bu yazının en
-kolay hatası burada işaret kaçırmaktır.
+`uLightDirection` is the unit vector pointing from the surface **TOWARD THE
+LIGHT**. Getting that sign wrong is the easiest mistake in this whole piece.
 
-### Kalınlık haritası konvansiyonu
+### The thickness map convention
 
-Dokuda saklanan değer **yolun uzunluğu**dur. **Beyaz = kalın = ışık zor geçer.
-Siyah = ince = ışık kolay geçer.** Mod = Kalınlık ile çıplak görebilirsiniz.
+The value stored in the texture is **the length of the path**. **White = thick =
+light has a hard time getting through. Black = thin = light passes easily.** You
+can see it bare with Mode = Thickness.
 
-### Korkuluklar
+### Guardrails
 
-`devicePixelRatio` en fazla 2 sayılır, çözünürlük ölçeği 0,75'ten başlar, toplam
-piksel sayısı 1.200.000'i geçemez (`src/viewport.ts`). Sekme gizlenince döngü
-kendiliğinden durur (`visibilitychange`) — gizli sekmede toplanan kare süreleri
-hiçbir şey ifade etmiyor.
+`devicePixelRatio` counts as 2 at most, the resolution scale starts at 0.75, and
+the total pixel count cannot exceed 1,200,000 (`src/viewport.ts`). When the tab
+is hidden the loop stops by itself (`visibilitychange`) — frame times collected
+in a hidden tab mean nothing.
 
-## Deterministik ölçüm — `?measure=1`
+## Deterministic measurement — `?measure=1`
 
-Ölçüm modunda demo interaktif modu tamamen bırakır: arka tampon 960×540'a
-kilitlenir, kamera ve ışık sabit pozlara oturur, her yapılandırmada 30 ısınma
-karesi çöpe gider ve 180 kare tartılır. Sonuç konsola **tek satır** `MEASURE
-{json}` olarak düşer.
+In measurement mode the demo drops interactive mode entirely: the backbuffer is
+locked to 960×540, the camera and the light sit at fixed poses, and for each
+configuration 30 warm-up frames are thrown away and 180 frames are weighed. The
+result lands in the console as a **single line**, `MEASURE {json}`.
 
-### Ölçüm URL'leri
+### Measurement URLs
 
-| URL                                               | Ne yapar                                            |
+| URL                                               | What it does                                        |
 | ------------------------------------------------- | --------------------------------------------------- |
-| `http://localhost:5173/?measure=1`                | **Ana koşu.** A–G bloklarının hepsi, tek satır JSON |
-| `http://localhost:5173/?measure=1&only=materials` | Yalnızca üç materyal bloğu                          |
-| `http://localhost:5173/?measure=1&only=luminance` | Yalnızca iki poz + kalınlık kovaları                |
-| `http://localhost:5173/?measure=1&only=maps`      | Yalnızca harita çözünürlüğü + sabit kalınlık        |
-| `http://localhost:5173/?measure=1&only=lobe`      | Yalnızca power/distortion taraması                  |
-| `http://localhost:5173/?measure=1&only=channel`   | Yalnızca yeşil kanal sondası                        |
-| `http://localhost:5173/`                          | Normal demo (ölçüm yok)                             |
+| `http://localhost:5173/?measure=1`                | **The main run.** All of blocks A–G, one JSON line   |
+| `http://localhost:5173/?measure=1&only=materials` | The three material blocks only                      |
+| `http://localhost:5173/?measure=1&only=luminance` | Two poses + thickness buckets only                  |
+| `http://localhost:5173/?measure=1&only=maps`      | Map resolution + constant thickness only            |
+| `http://localhost:5173/?measure=1&only=lobe`      | The power/distortion sweep only                     |
+| `http://localhost:5173/?measure=1&only=channel`   | The green-channel probe only                        |
+| `http://localhost:5173/`                          | Normal demo (no measurement)                        |
 
-`only=` alt koşuları aynı şemayı basar, ilgisiz alanlar `null` kalır. Ana koşu
-makine üstünde ~90 saniye sürüyor; sekmeyi ön planda tutun.
+The `only=` sub-runs print the same schema, with unrelated fields left `null`.
+The main run takes ~90 seconds on this machine; keep the tab in the foreground.
 
-Ön koşul: `public/thickness/candle-128.bin`, `-256.bin`, `-512.bin` üçü de
-mevcut olmalı. Yoksa demo sessiz beyaz ekran vermez, kırmızı bir bant açıp
-`npm run bake:all` der.
+Precondition: `public/thickness/candle-128.bin`, `-256.bin` and `-512.bin` must
+all be present. Without them the demo does not give you a silent white screen —
+it opens a red banner telling you to run `npm run bake:all`.
 
-### Ham koşular
+### Raw runs
 
-Her `MEASURE` ve her `BAKE` satırı `measurements-<tarih>.jsonl` dosyasına
-`{"kind": "measure"|"bake", "run": N, ...}` biçiminde yazılır. `npm run bake:all`
-kendi satırlarını otomatik ekler; tarayıcı koşuları elle eklenir. En az üç koşu
-alınır; makaleye temsilî koşunun sayıları girer.
+Every `MEASURE` and every `BAKE` line is written to `measurements-<date>.jsonl`
+as `{"kind": "measure"|"bake", "run": N, ...}`. `npm run bake:all` appends its
+own lines automatically; browser runs are appended by hand. At least three runs
+are taken; the numbers from the representative run go into the article.
 
-BVH'nin neredeyse-eksene-paralel ışın düzeltmesinden sonra on fırın koşusu
-tekrarlandı (`measurements-2026-09-02.jsonl`); `public/thickness/` altındaki
-haritalar bayt bayt aynı çıktı, yani düzeltme yayımlanan çıktıyı değiştirmiyor.
+After the BVH's near-axis-aligned-ray fix, ten bake runs were repeated
+(`measurements-2026-09-02.jsonl`); the maps under `public/thickness/` came out
+byte for byte identical, meaning the fix does not change the published output.
 
-Soğuk derleme etkisi için `?measure=1` koşuları arka arkaya **aynı sekmede**
-tekrarlanır; ilk koşunun sürücü önbelleğini ısıttığı varsayılır.
+To account for cold-compile effects, `?measure=1` runs are repeated back to back
+**in the same tab**; the first run is assumed to have warmed the driver cache.
 
-### Öz-tutarlılık (gürültü bandı)
+### Self-consistency (the noise band)
 
-Lob taramasının `power = 4` satırı ile harita çözünürlüğü taramasının 256²
-satırı aynı yapılandırmayı ölçüyor; aralarındaki fark tekniğin değil düzeneğin
-gürültüsü. Ham kayıttan hesaplamak için:
+The `power = 4` row of the lobe sweep and the 256² row of the map-resolution
+sweep measure the same configuration; the difference between them is the noise
+of the rig, not of the technique. To compute it from the raw log:
 
 ```bash
 node tools/self-consistency.mjs measurements-2026-08-13.jsonl
-# koşu bazlı |d|/ort: min 9.3% · medyan 16.4% · maks 61.6%
-# yayımlanan medyanlar (0.4532 vs 0.3618) üzerinden |d|/ort: 22.4%
+# per-run |d|/avg: min 9.3% · median 16.4% · max 61.6%
+# |d|/avg over the published medians (0.4532 vs 0.3618): 22.4%
 ```
 
-Bu bant, lob parametrelerinde aranan farktan geniş — makaledeki "`power`ın
-etkisini ölçemedim" cümlesinin dayanağı bu sayı.
+That band is wider than the difference we are looking for in the lobe
+parameters — this number is what backs the article's "I could not measure the
+effect of `power`" sentence.
 
-### Ne ölçülüyor, ne hesaplanıyor
+### What is measured, what is computed
 
-- **Ölçülen:** `gpuMsMedian`, `gpuMsP95`, `wallMsMedian`, `drawCalls`,
+- **Measured:** `gpuMsMedian`, `gpuMsP95`, `wallMsMedian`, `drawCalls`,
   `triangles`, `programs`, `luminance.*`, `buckets.*`, `rmsVsRef`,
   `greenChannel.*`, `maskPixels`.
-- **Hesaplanan:** `textureBytes`, `vramBytes`, `transmissionTargetBytes`.
-  `transmissionTargetBytes` uydurma bir formül değil: transmission hedefinin
-  gerçek boyutu three'nin `transmissionSamplerSize` uniform'undan okunuyor
-  (`renderer.properties.get(material).uniforms`), mipmap zinciri bunun üstüne
-  hesaplanıyor. Okunamazsa alan `null` kalır.
+- **Computed:** `textureBytes`, `vramBytes`, `transmissionTargetBytes`.
+  `transmissionTargetBytes` is not a made-up formula: the real size of the
+  transmission target is read from three's `transmissionSamplerSize` uniform
+  (`renderer.properties.get(material).uniforms`), and the mipmap chain is
+  computed on top of that. If it cannot be read, the field stays `null`.
 
-### Yarım kayan noktalı geri okuma
+### Half-float readback
 
-Parlaklık ortalaması sekiz bitlik bir hedeften değil, `HalfFloatType` bir
-hedeften alınıyor: arkadan aydınlatmada Lambert'in ortalaması sıfıra o kadar
-yakın ki sekiz bitte fark ölçüm biriminin altında kalıyor. Sürücü half float
-hedeften geri okumayı reddederse `FloatType`'a düşülüyor ve çıktıya
-`"readbackType": "float"` yazılıyor. Sessizce 8 bite düşmek yok.
+The luminance mean is taken from a `HalfFloatType` target, not an eight-bit one:
+under back lighting Lambert's mean is so close to zero that in eight bits the
+difference falls below the unit of measurement. If the driver refuses readback
+from a half-float target, it falls back to `FloatType` and the output records
+`"readbackType": "float"`. There is no silent drop to 8 bits.
 
-### Sabit-kalınlık ölçümünün ne ölçtüğü
+### What the constant-thickness measurement actually measures
 
-`uUseMap = 0` iken `uThickness` **yine de bağlıdır** — tek program, tek varyant,
-`defines` yok. Yani sabit-kalınlık satırı yalnızca doku okumasının maliyetini
-değil, "doku okuması + dallanma" ile "uniform okuma"nın farkını ölçüyor.
+When `uUseMap = 0`, `uThickness` **is still bound** — one program, one variant,
+no `defines`. So the constant-thickness row does not measure only the cost of
+the texture read; it measures the difference between "texture read + branch" and
+"uniform read".
 
-## Doğrulama borçları
+## Verification debts
 
-### 1. `three@0.185.1` ve `@types/three`
+### 1. `three@0.185.1` and `@types/three`
 
-`npm view three versions` çıktısında `0.185.1` var; `@types/three@0.185.4` tam
-eşleşen en yakın sürüm ve `npm run build` (`tsc`) temiz geçiyor. `declare module
-"three"` gibi bir kaçış yolu kullanılmadı.
+`0.185.1` is in the output of `npm view three versions`; `@types/three@0.185.4`
+is the closest exactly matching version and `npm run build` (`tsc`) passes
+clean. No escape hatch like `declare module "three"` was used.
 
-### 2. `thicknessMap`'in YEŞİL kanalı
+### 2. The GREEN channel of `thicknessMap`
 
-İddia gözle doğrulandı:
+The claim was verified by eye:
 
 ```
 node_modules/three/src/renderers/shaders/ShaderChunk/transmission_fragment.glsl.js:18
     material.thickness *= texture2D( thicknessMap, vThicknessMapUv ).g;
 ```
 
-(16–20. satırlar, `#ifdef USE_THICKNESSMAP` bloğu içinde.) Ölçüm de aynı şeyi
-söylüyor: `?measure=1&only=channel` koşusunda R8 dokunun yeşil kanalı mesh
-piksellerinde `r8MeanOnMesh = 0` ve `r8MaxOnMesh = 0`; aynı verinin RG8
-kopyasında `rg8MeanOnMesh ≈ 0,945`. Bu yüzden `src/thickness.ts` yükleme
-sırasında RG8 kopyası çıkarıyor (iki kat bayt), fırın hâlâ tek dosya üretiyor.
+(Lines 16–20, inside the `#ifdef USE_THICKNESSMAP` block.) The measurement says
+the same thing: in the `?measure=1&only=channel` run, the green channel of the
+R8 texture on mesh pixels gives `r8MeanOnMesh = 0` and `r8MaxOnMesh = 0`; on the
+RG8 copy of the same data, `rg8MeanOnMesh ≈ 0.945`. That is why
+`src/thickness.ts` derives an RG8 copy at load time (twice the bytes) while the
+bake still produces a single file.
 
-**Görsel karşılığını denemek için** (kodda kalıcı anahtar yok):
-`src/renderer.ts` içindeki `applyMaps()` fonksiyonunda
-`physicalMaterial.thicknessMap = rg;` satırını geçici olarak
-`= (set ?? fallback)?.r8 ?? null;` yapın. Materyal berrak cama döner —
-`thicknessFactor` sıfırla çarpıldığı için hacim yutulması tamamen kapanır.
+**To try the visual counterpart** (there is no permanent switch in the code):
+in the `applyMaps()` function inside `src/renderer.ts`, temporarily change the
+line `physicalMaterial.thicknessMap = rg;` to
+`= (set ?? fallback)?.r8 ?? null;`. The material turns into clear glass —
+because `thicknessFactor` gets multiplied by zero, volume absorption shuts off
+completely.
 
-## Bilinen sınırlar
+## Known limits
 
-- **Kaçan ışın oranı sıfır değil.** `measurements-2026-09-02.jsonl`: candle
-  6 / 17 / 79 (128² / 256² / 512²), blob 5 / 2.546 / 8.639 — yani %0,0011 /
-  %0,0008 / %0,0009 ve %0,0010 / %0,1214 / %0,1030. Oran = `escapedRays /
-  (texelsRasterized × rays)`. Sebep mesh'te delik değil, iki sayısal eşik:
-  (1) lathe'in dikiş meridyeninde (`u = 0` ve `u = 0,5`) başlayıp aynı düzlemde
-  ilerleyen ışın, iki komşu üçgenin ortak kenarına tam isabet edip her ikisinde de
-  `u` `-3,1e-15` ile `-1,8e-16` arasında çıktığı için eleniyor (watertightness); (2) blob'un en geniş halkasında
-  (`v ≈ 0,0215`) çıkış kesişimi gerçek ama `t` `2,9e-6` ile `1e-5` arasında, yani
-  `intersectTriangle`'ın `t > 1e-5` kendine çarpma eşiğinin altında kalıyor —
-  blob 256²'deki 2.546 kaçağın 2.530'u bu satırdan. İki mekanizma candle 128² +
-  blob 256²'nin 2.552 kaçağının tamamını açıklıyor (2.530 + 22). BVH'nin payı yok: `--bvh=off` kaba kuvvet koşusu
-  aynı sayıyı ve aynı `sha256`'yı veriyor. Sayaç önceden `t === Infinity`e bakıyordu
-  ve ıska yolu `Infinity` değil tavanı döndürdüğü için her zaman 0 yazıyordu;
-  ölçüt `t >= maxChord` olarak düzeltildi. Bu düzeltme yalnızca sayacı değiştirdi:
-  iki kayıtta da haritaların `sha256`'sı ve `meanThicknessNormalized`'ı aynı,
-  değişen tek alan `escapedRays`.
-- **Kapsama %100, dilate 0 texel.** `LatheGeometry`'nin UV'si birim kareyi baştan
-  sona kaplıyor ve çakışan ada yok; atlas paketleyici gerekmiyor. Gerçek bir
-  taranmış modelde durum böyle olmaz — bu sayı seçimin sonucu, tekniğin marifeti
-  değil. `dilate` yine de hattın içinde ve testleri var.
-- **Lob taraması gürültü bandının altında kalıyor.** `power` ve `distortion`
-  taramasında ölçülen GPU medyanları koşudan koşuya ±0,3 ms oynuyor; aradaki
-  gerçek fark (varsa) bu bandın altında. Tabloyu "fark yok" diye okumak yerine
-  "bu düzenekte ölçülemedi" diye okumak lazım.
-- **Kalınlık haritası pişirme anının fotoğrafı.** Mesh deforme olursa harita
-  eski gövdeyi anlatmaya devam eder ve hata mesajı gelmez.
+- **The escaped-ray rate is not zero.** `measurements-2026-09-02.jsonl`: candle
+  6 / 17 / 79 (128² / 256² / 512²), blob 5 / 2,546 / 8,639 — that is 0.0011% /
+  0.0008% / 0.0009% and 0.0010% / 0.1214% / 0.1030%. Rate = `escapedRays /
+  (texelsRasterized × rays)`. The cause is not a hole in the mesh but two
+  numerical thresholds: (1) a ray that starts on the lathe's seam meridian
+  (`u = 0` and `u = 0.5`) and travels in that same plane hits the shared edge of
+  two neighboring triangles exactly, and gets rejected because `u` comes out
+  between `-3.1e-15` and `-1.8e-16` on both of them (watertightness); (2) on the
+  blob's widest ring (`v ≈ 0.0215`) the exit intersection is real but `t` is
+  between `2.9e-6` and `1e-5`, i.e. below `intersectTriangle`'s `t > 1e-5`
+  self-hit threshold — 2,530 of the 2,546 escapes in blob 256² come from that
+  row. The two mechanisms explain all 2,552 escapes of candle 128² +
+  blob 256² (2,530 + 22). The BVH has no part in it: the `--bvh=off` brute-force
+  run gives the same count and the same `sha256`. The counter used to look at
+  `t === Infinity`, and since the miss path returns the ceiling rather than
+  `Infinity`, it always wrote 0; the criterion was fixed to `t >= maxChord`.
+  That fix changed the counter only: in both logs the maps' `sha256` and
+  `meanThicknessNormalized` are identical, and the only field that moved is
+  `escapedRays`.
+- **Coverage is 100%, dilate is 0 texels.** `LatheGeometry`'s UV covers the unit
+  square end to end with no overlapping islands; no atlas packer is needed. On a
+  real scanned model this is not the case — that number is a consequence of the
+  choice, not a merit of the technique. `dilate` is in the pipeline anyway, and
+  it has tests.
+- **The lobe sweep stays under the noise band.** In the `power` and `distortion`
+  sweep the measured GPU medians move by ±0.3 ms from run to run; the real
+  difference between them (if any) is below that band. Instead of reading the
+  table as "there is no difference", read it as "it could not be measured on
+  this rig".
+- **The thickness map is a photograph of the moment it was baked.** If the mesh
+  deforms, the map keeps describing the old body, and no error message shows up.
 
-## Dosya düzeni
+## File layout
 
 ```
 src/
@@ -311,9 +324,9 @@ src/
   thickness.ts · timer.ts · translucency.ts · vec.ts · viewport.ts
 tools/        bake-thickness.ts · bake-all.mjs · self-consistency.mjs
 public/thickness/  candle-{128,256,512}.bin + .json · blob-{128,256,512}.bin + .json
-test/         15 dosya + geometry.ts (test yardımcısı)
+test/         15 files + geometry.ts (test helper)
 ```
 
-## Lisans
+## License
 
 MIT — `LICENSE`.

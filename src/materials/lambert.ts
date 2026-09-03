@@ -5,7 +5,7 @@ import silhouetteSource from "../shaders/silhouette.frag.glsl?raw";
 import vertSource from "../shaders/sss.vert.glsl?raw";
 import { SSS_DEFAULTS } from "./sss";
 
-/** Aynı albedo, aynı specular, kalınlık yok, doku bağı yok. */
+/** Same albedo, same specular, no thickness, no texture binding. */
 export function createLambertMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3,
@@ -21,7 +21,7 @@ export function createLambertMaterial(): THREE.ShaderMaterial {
   });
 }
 
-/** Maske geçişi materyali: mesh piksellerini beyaz boyar. */
+/** Mask pass material: paints the mesh pixels white. */
 export function createSilhouetteMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3,
@@ -31,7 +31,7 @@ export function createSilhouetteMaterial(): THREE.ShaderMaterial {
   });
 }
 
-/** Yeşil kanal sondası: aynı UV'den `.g` ve `.r` yan yana okunur. */
+/** Green channel probe: `.g` and `.r` read side by side from the same UV. */
 export function createGreenProbeMaterial(
   texture: THREE.Texture | null,
 ): THREE.ShaderMaterial {

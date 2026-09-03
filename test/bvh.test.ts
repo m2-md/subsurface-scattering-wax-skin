@@ -4,10 +4,10 @@ import { bruteForceIntersect } from "../src/bake/intersect";
 import { cosineDirection, hammersley } from "../src/bake/sampling";
 import { boxTriangles, icosphereTriangles } from "./geometry";
 
-// test/bvh.test.ts (parça)
+// test/bvh.test.ts (excerpt)
 describe("Bvh", () => {
-  it("BVH sonucu kaba kuvvetle birebir aynı", () => {
-    const tris = icosphereTriangles(2); // deterministik, tohum yok
+  it("BVH result matches brute force exactly", () => {
+    const tris = icosphereTriangles(2); // deterministic, no seed
     const bvh = new Bvh(tris, 4);
 
     for (let i = 0; i < 200; i++) {
@@ -19,7 +19,7 @@ describe("Bvh", () => {
     }
   });
 
-  it("eksene paralel ışınlarda NaN üretmez", () => {
+  it("produces no NaN for axis-aligned rays", () => {
     const bvh = new Bvh(boxTriangles(1), 4);
     for (const dir of [
       [1, 0, 0],
@@ -33,12 +33,12 @@ describe("Bvh", () => {
     }
   });
 
-  it("neredeyse eksene paralel ışında da kaba kuvvetle aynı sonucu verir", () => {
-    // Fırın kaydından çıkan regresyon. Kuzey kutbundaki texel'in ışını x eksenine
-    // TAM paralel değil: dx = 3.4e-17, yani 1/dx sonsuz değil 2.9e16. Işının
-    // başlangıcı bir düğüm kutusunun maxX düzlemi üstünde durunca
-    // `hi = (maxX - ox) * invX` tam 0 çıkıyor, `tmax` 0'a kelepçeleniyor ve
-    // gerçek kesişimi taşıyan yaprak sessizce eleniyordu.
+  it("matches brute force on a near-axis-aligned ray too", () => {
+    // Regression from a bake run. The ray of the texel at the north pole is
+    // not EXACTLY parallel to the x axis: dx = 3.4e-17, so 1/dx is not
+    // infinite but 2.9e16. When the ray origin sits right on a node box's maxX
+    // plane, `hi = (maxX - ox) * invX` comes out exactly 0, `tmax` is clamped
+    // to 0 and the leaf carrying the real intersection was silently culled.
     const tris = icosphereTriangles(2);
     const bvh = new Bvh(tris, 4);
     const maxChord = 2 * Math.sqrt(3);
@@ -57,12 +57,12 @@ describe("Bvh", () => {
       dir[2],
       maxChord,
     );
-    // Kaba kuvvet gerçekten bir duvar buluyor: ışın kapalı gövdenin içinden geçiyor.
+    // Brute force really finds a wall: the ray passes through the closed body.
     expect(brute).toBeLessThan(maxChord);
     expect(tree).toBeCloseTo(brute, 12);
   });
 
-  it("leafSize 1/4/16 üçünde de aynı sonucu verir", () => {
+  it("gives the same result at leafSize 1, 4 and 16", () => {
     const tris = icosphereTriangles(2);
     const trees = [1, 4, 16].map((leaf) => new Bvh(tris, leaf));
     for (let i = 0; i < 120; i++) {
@@ -76,28 +76,28 @@ describe("Bvh", () => {
     }
   });
 
-  it("boş ağaç çökmüyor, tMax döndürüyor", () => {
+  it("empty tree does not crash, returns tMax", () => {
     const bvh = new Bvh(new Float32Array(0), 4);
     expect(bvh.triangleCount).toBe(0);
     expect(bvh.intersect(0, 0, 0, 0, 0, 1, 42)).toBe(42);
   });
 
-  it("tek üçgenli ağaç doğru mesafeyi veriyor", () => {
+  it("single-triangle tree gives the right distance", () => {
     const bvh = new Bvh(new Float32Array([-1, -1, 5, 3, -1, 5, -1, 3, 5]), 4);
     expect(bvh.intersect(0, 0, 0, 0, 0, 1, 100)).toBeCloseTo(5, 12);
     expect(bvh.intersect(9, 9, 0, 0, 0, 1, 100)).toBe(100);
   });
 
-  it("tMax sınırının ötesindeki kesişim döndürülmez", () => {
+  it("an intersection beyond the tMax limit is not returned", () => {
     const bvh = new Bvh(boxTriangles(3), 4);
     expect(bvh.intersect(0, 0, 0, 0, 0, 1, 1)).toBe(1);
     expect(bvh.intersect(0, 0, 0, 0, 0, 1, 10)).toBeCloseTo(3, 6);
   });
 
-  it("yığın taşmıyor: derinlik sınırı yığın boyutuna uyuyor", () => {
+  it("stack does not overflow: the depth limit fits the stack size", () => {
     const bvh = new Bvh(icosphereTriangles(3), 4);
     expect(bvh.stack.length).toBeGreaterThanOrEqual(2 * bvh.depth + 8);
-    // 5120 üçgen, yaprak 4 → derinlik log2(1280) civarı
+    // 5120 triangles, leaf 4 → depth around log2(1280)
     expect(bvh.depth).toBeLessThan(32);
     const t = bvh.intersect(0, 0, 0, 0, 0, 1, 100);
     expect(Number.isNaN(t)).toBe(false);
@@ -106,35 +106,35 @@ describe("Bvh", () => {
 });
 
 describe("slabDistance", () => {
-  // Tek düğüm: [-1,-1,-1] .. [1,1,1]
+  // Single node: [-1,-1,-1] .. [1,1,1]
   const bounds = new Float32Array([-1, -1, -1, 1, 1, 1]);
 
-  it("kutunun içinden başlayan ışın için 0 döner", () => {
+  it("returns 0 for a ray that starts inside the box", () => {
     expect(slabDistance(bounds, 0, 0, 0, 0, 1, 1, 1, 100)).toBe(0);
   });
 
-  it("dışarıdan gelen ışın için giriş mesafesini verir", () => {
-    // Yön (0, 0, 1): x ve y ters değerleri sonsuz.
+  it("gives the entry distance for a ray coming from outside", () => {
+    // Direction (0, 0, 1): the x and y inverses are infinite.
     expect(
       slabDistance(bounds, 0, 0, 0, -5, Infinity, Infinity, 1, 100),
     ).toBeCloseTo(4, 12);
   });
 
-  it("ıskalayan ışın Infinity döner", () => {
+  it("a ray that misses returns Infinity", () => {
     expect(slabDistance(bounds, 0, 5, 5, -5, 1, 1, 1, 100)).toBe(Infinity);
   });
 
-  it("0 * Infinity = NaN tuzağına düşmez: sınırın tam üstündeki paralel ışın", () => {
-    // Işın x = -1 düzleminde ve x eksenine paralel: (bmin.x - ox) * inf = NaN
+  it("avoids the 0 * Infinity = NaN trap: parallel ray right on the bound", () => {
+    // Ray on the x = -1 plane, parallel to the x axis: (bmin.x - ox) * inf = NaN
     const value = slabDistance(bounds, 0, -1, 0, 0, Infinity, 1, 1, 100);
     expect(Number.isNaN(value)).toBe(false);
     expect(value).toBe(0);
   });
 
-  it("neredeyse paralel ışın sınırın tam üstündeyken kutuyu elemiyor", () => {
-    // `1 / d` sonsuz değil, sadece devasa (d = 3.4e-17). Başlangıç kutunun maxX
-    // düzlemi üstünde: naif slab testinde `hi = (1 - 1) * 2.9e16 = 0` çıkıyor,
-    // `tmax` 0'a iniyor ve y ekseni `tmin`i 2'ye çekince kutu yanlışlıkla eleniyor.
+  it("does not cull the box when a near-parallel ray sits on the bound", () => {
+    // `1 / d` is not infinite, only huge (d = 3.4e-17). The origin sits on the
+    // box's maxX plane: a naive slab test gets `hi = (1 - 1) * 2.9e16 = 0` and
+    // `tmax` falls to 0, so the y axis `tmin` of 2 culls the box by mistake.
     const value = slabDistance(
       bounds,
       0,
@@ -150,12 +150,12 @@ describe("slabDistance", () => {
     expect(value).toBeCloseTo(2, 12);
   });
 
-  it("eksene paralel ve kutunun dışındaki ışın Infinity döner", () => {
+  it("an axis-aligned ray outside the box returns Infinity", () => {
     const value = slabDistance(bounds, 0, 5, 0, 0, Infinity, 1, 1, 100);
     expect(value).toBe(Infinity);
   });
 
-  it("tMax'tan uzaktaki kutu elenir", () => {
+  it("a box farther away than tMax is culled", () => {
     expect(slabDistance(bounds, 0, 0, 0, -5, Infinity, Infinity, 1, 2)).toBe(
       Infinity,
     );

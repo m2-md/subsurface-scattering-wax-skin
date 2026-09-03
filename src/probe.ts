@@ -7,10 +7,10 @@ export const PROBE_WIDTH = 480;
 export const PROBE_HEIGHT = 270;
 
 /**
- * Sürücünün half float bir hedeften geri okuma yapıp yapamadığını 1×1 bir
- * hedefle bir kez yoklar. Sessizce sekiz bite düşmek YASAK: arkadan
- * aydınlatmada ölçmek istediğimiz fark sekiz bitte ölçüm biriminin altında
- * kalıyor, o yüzden yedek yol `FloatType`.
+ * Probes once, with a 1×1 target, whether the driver can read back from a half
+ * float target. Silently dropping to eight bits is FORBIDDEN: the difference we
+ * want to measure under back lighting stays below the unit of measurement at
+ * eight bits, so the fallback path is `FloatType`.
  */
 export function detectReadbackType(
   renderer: THREE.WebGLRenderer,
@@ -42,7 +42,7 @@ export interface LinearProbe {
   width: number;
   height: number;
   setSize(width: number, height: number): void;
-  /** DOĞRUSAL RGBA, half/float'tan çözülmüş. */
+  /** LINEAR RGBA, decoded from half/float. */
   read(renderer: THREE.WebGLRenderer): Float32Array;
   dispose(): void;
 }
@@ -112,7 +112,7 @@ export interface MaskProbe {
   width: number;
   height: number;
   setSize(width: number, height: number): void;
-  /** Piksel başına bir bayt: 1 = mesh. Eşik `> 0.5` (127). */
+  /** One byte per pixel: 1 = mesh. Threshold `> 0.5` (127). */
   read(renderer: THREE.WebGLRenderer): Uint8Array;
   dispose(): void;
 }

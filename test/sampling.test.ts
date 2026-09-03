@@ -8,7 +8,7 @@ import {
 import { dot, length } from "../src/vec";
 import type { Vec3 } from "../src/vec";
 
-/** Sabit tohumlu, `Math.random` kullanmayan üreteç. */
+/** Fixed-seed generator that does not use `Math.random`. */
 function lcg(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -25,14 +25,14 @@ function randomDirection(random: () => number): Vec3 {
 }
 
 describe("radicalInverse2", () => {
-  it("bilinen ilk sekiz değeri verir", () => {
+  it("gives the known first eight values", () => {
     const expected = [0, 0.5, 0.25, 0.75, 0.125, 0.625, 0.375, 0.875];
     expected.forEach((value, index) => {
       expect(radicalInverse2(index)).toBeCloseTo(value, 12);
     });
   });
 
-  it("her zaman [0, 1) aralığında", () => {
+  it("always in the [0, 1) range", () => {
     for (let i = 0; i < 4096; i++) {
       const value = radicalInverse2(i);
       expect(value).toBeGreaterThanOrEqual(0);
@@ -42,7 +42,7 @@ describe("radicalInverse2", () => {
 });
 
 describe("hammersley", () => {
-  it("ilk bileşen monoton artar ve [0,1) aralığında kalır", () => {
+  it("the first component increases monotonically and stays in [0,1)", () => {
     let previous = -1;
     for (let i = 0; i < 64; i++) {
       const [u1, u2] = hammersley(i, 64);
@@ -54,7 +54,7 @@ describe("hammersley", () => {
     }
   });
 
-  it("ikinci bileşen radicalInverse2 ile aynıdır", () => {
+  it("the second component is the same as radicalInverse2", () => {
     for (let i = 0; i < 16; i++) {
       expect(hammersley(i, 16)[1]).toBe(radicalInverse2(i));
     }
@@ -62,7 +62,7 @@ describe("hammersley", () => {
 });
 
 describe("orthonormalBasis", () => {
-  it("200 sabit tohumlu yönde ortonormal kalır", () => {
+  it("stays orthonormal for 200 fixed-seed directions", () => {
     const random = lcg(1337);
     for (let i = 0; i < 200; i++) {
       const n = randomDirection(random);
@@ -75,7 +75,7 @@ describe("orthonormalBasis", () => {
     }
   });
 
-  it("kutuplarda NaN üretmez", () => {
+  it("produces no NaN at the poles", () => {
     for (const n of [
       [0, 0, 1],
       [0, 0, -1],
@@ -91,7 +91,7 @@ describe("orthonormalBasis", () => {
 });
 
 describe("cosineDirection", () => {
-  it("1000 örnek birim uzunlukta ve normalle pozitif çarpım verir", () => {
+  it("1000 samples are unit length and dot positively with the normal", () => {
     const n: Vec3 = [0, 1, 0];
     for (let i = 0; i < 1000; i++) {
       const [u1, u2] = hammersley(i, 1000);
@@ -101,7 +101,7 @@ describe("cosineDirection", () => {
     }
   });
 
-  it("keyfi normaller etrafında da yarım küreyi terk etmez", () => {
+  it("does not leave the hemisphere around arbitrary normals either", () => {
     const random = lcg(7);
     for (let i = 0; i < 200; i++) {
       const n = randomDirection(random);
@@ -112,7 +112,7 @@ describe("cosineDirection", () => {
     }
   });
 
-  it("ortalama yön normale yakınsar: kosinüs ağırlığının kanıtı", () => {
+  it("the mean direction converges to the normal: proof of cosine weighting", () => {
     const n: Vec3 = [0, 0, 1];
     let sx = 0;
     let sy = 0;
@@ -125,7 +125,7 @@ describe("cosineDirection", () => {
       sy += dir[1];
       sz += dir[2];
     }
-    // Kosinüs ağırlıklı yarım kürede E[cos] = 2/3.
+    // On a cosine-weighted hemisphere E[cos] = 2/3.
     expect(sz / count).toBeCloseTo(2 / 3, 2);
     expect(Math.abs(sx / count)).toBeLessThan(1e-2);
     expect(Math.abs(sy / count)).toBeLessThan(1e-2);

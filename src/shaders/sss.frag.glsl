@@ -21,13 +21,13 @@ in vec2 vUv;
 
 layout(location = 0) out vec4 outColor;
 
-// src/modes.ts ile AYNI sayılar.
+// The SAME numbers as in src/modes.ts.
 const int MODE_FULL = 0;
 const int MODE_THICKNESS = 1;
 const int MODE_TRANSMISSION = 2;
 const int MODE_WRAP = 3;
 
-// src/shaders/sss.frag.glsl (parça)
+// src/shaders/sss.frag.glsl (excerpt)
 void main() {
   vec3 n = normalize(vWorldNormal);
   vec3 v = normalize(cameraPosition - vWorldPosition);
@@ -55,6 +55,6 @@ void main() {
   if (uMode == MODE_TRANSMISSION) { outColor = vec4(transmitted, 1.0); return; }
   if (uMode == MODE_WRAP) { outColor = vec4(diffuse, 1.0); return; }
 
-  // Doğrusal uzayda yazıyoruz; sRGB dönüşümü sondaki present geçişinde.
+  // We write in linear space; the sRGB conversion is in the final present pass.
   outColor = vec4(diffuse + transmitted + spec, 1.0);
 }

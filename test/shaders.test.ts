@@ -33,24 +33,24 @@ function outLocations(source: string): number[] {
 
 function constInt(source: string, name: string): number {
   const match = source.match(new RegExp(`const int ${name}\\s*=\\s*(\\d+)`));
-  if (!match) throw new Error(`${name} bulunamadı`);
+  if (!match) throw new Error(`${name} not found`);
   return Number(match[1]);
 }
 
-describe("GLSL kaynakları", () => {
-  it("hiçbir dosyada #version yok — three GLSL3 modunda kendisi ekliyor", () => {
+describe("GLSL sources", () => {
+  it("no file has #version — three adds it itself in GLSL3 mode", () => {
     for (const [name, source] of SOURCES) {
       expect(source, name).not.toMatch(/#version/);
     }
   });
 
-  it("hiçbir dosya precision bildirimi içermiyor (three ekliyor)", () => {
+  it("no file contains a precision declaration (three adds it)", () => {
     for (const [name, source] of SOURCES) {
       expect(source, name).not.toMatch(/^\s*precision\s+/m);
     }
   });
 
-  it("bütün fragment shader'ları tek eke yazar", () => {
+  it("every fragment shader writes to a single attachment", () => {
     for (const source of [
       sssFrag,
       lambertFrag,
@@ -62,14 +62,14 @@ describe("GLSL kaynakları", () => {
     }
   });
 
-  it("sss.frag MODE_* sabitleri src/modes.ts ile aynı sayılar", () => {
+  it("sss.frag MODE_* constants are the same numbers as src/modes.ts", () => {
     expect(constInt(sssFrag, "MODE_FULL")).toBe(MODE_FULL);
     expect(constInt(sssFrag, "MODE_THICKNESS")).toBe(MODE_THICKNESS);
     expect(constInt(sssFrag, "MODE_TRANSMISSION")).toBe(MODE_TRANSMISSION);
     expect(constInt(sssFrag, "MODE_WRAP")).toBe(MODE_WRAP);
   });
 
-  it("translucency chunk'ı wrapDiffuse formülünü aynen taşıyor", () => {
+  it("the translucency chunk carries the wrapDiffuse formula verbatim", () => {
     expect(translucencyChunk).toMatch(
       /float wrapDiffuse\(float ndl, float wrap\)/,
     );
@@ -77,7 +77,7 @@ describe("GLSL kaynakları", () => {
     expect(translucencyChunk).toMatch(/\(1\.0 \+ w\) \* \(1\.0 \+ w\)/);
   });
 
-  it("backTranslucency lobun EKSİSİNİ ve Beer-Lambert'i içeriyor", () => {
+  it("backTranslucency contains the NEGATED lobe and Beer-Lambert", () => {
     expect(translucencyChunk).toMatch(
       /normalize\(lightDir \+ normal \* distortion\)/,
     );
@@ -85,22 +85,22 @@ describe("GLSL kaynakları", () => {
     expect(translucencyChunk).toMatch(/exp\(-absorption \* thickness\)/);
   });
 
-  it("lambert.frag uThickness İÇERMEZ — doku baytı = 0 iddiası buna bağlı", () => {
+  it("lambert.frag has NO uThickness — the 0 texture bytes claim rests on it", () => {
     expect(lambertFrag).not.toMatch(/uThickness/);
     expect(lambertFrag).not.toMatch(/sampler2D/);
     expect(lambertFrag).toMatch(/max\(dot\(n, l\), 0\.0\)/);
   });
 
-  it("sss.frag kırmızı kanaldan okur, yeşilden okumaz", () => {
+  it("sss.frag reads the red channel, not the green", () => {
     expect(sssFrag).toMatch(/texture\(uThickness, vUv\)\.r/);
     expect(sssFrag).not.toMatch(/texture\(uThickness, vUv\)\.g/);
   });
 
-  it("sss.frag specular'ı ışık arkadayken kapatıyor", () => {
+  it("sss.frag turns specular off when the light is behind", () => {
     expect(sssFrag).toMatch(/step\(0\.0, dot\(n, l\)\)/);
   });
 
-  it("sss.frag sözleşmedeki bütün uniform'ları bildiriyor", () => {
+  it("sss.frag declares every uniform in the contract", () => {
     for (const name of [
       "uThickness",
       "uAlbedo",
@@ -123,29 +123,29 @@ describe("GLSL kaynakları", () => {
     }
   });
 
-  it("sss.vert dünya uzayı normali üretir, normalMatrix kullanmaz", () => {
+  it("sss.vert produces a world-space normal, does not use normalMatrix", () => {
     expect(sssVert).toMatch(/mat3\(modelMatrix\) \* normal/);
     expect(sssVert).not.toMatch(/normalMatrix\s*\*/);
   });
 
-  it("greenprobe hem .g hem .r okur", () => {
+  it("greenprobe reads both .g and .r", () => {
     expect(greenProbeFrag).toMatch(/texture\(uThickness, vUv\)\.g/);
     expect(greenProbeFrag).toMatch(/texture\(uThickness, vUv\)\.r/);
   });
 
-  it("tam ekran vertex shader'ı projeksiyon matrisi kullanmaz", () => {
+  it("the fullscreen vertex shader does not use a projection matrix", () => {
     expect(fullscreenVert).toMatch(/gl_Position\s*=\s*vec4\(position\.xy/);
     expect(fullscreenVert).not.toMatch(/projectionMatrix/);
   });
 
-  it("present geçişi sRGB kodlamasını TEK yerde yapıyor", () => {
+  it("the present pass does the sRGB encoding in ONE place", () => {
     expect(presentFrag).toMatch(/pow\(c, vec3\(1\.0 \/ 2\.2\)\)/);
     for (const source of [sssFrag, lambertFrag]) {
       expect(source).not.toMatch(/1\.0 \/ 2\.2/);
     }
   });
 
-  it("silhouette geçişi düz beyaz yazar", () => {
+  it("the silhouette pass writes flat white", () => {
     expect(silhouetteFrag).toMatch(/outColor = vec4\(1\.0\);/);
   });
 });

@@ -18,7 +18,7 @@ export class GpuTimer {
   }
 
   begin(): void {
-    if (!this.ext || this.active) return; // aynı anda tek sorgu açık olabilir
+    if (!this.ext || this.active) return; // only one query can be open at once
     this.active = this.gl.createQuery();
     this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, this.active);
   }
@@ -34,7 +34,7 @@ export class GpuTimer {
     if (!this.ext) return;
     const { gl } = this;
     if (gl.getParameter(this.ext.GPU_DISJOINT_EXT)) {
-      this.pending.length = 0; // GPU saati kesildi: eldeki her şey çöp
+      this.pending.length = 0; // GPU clock disjoint: everything in hand is junk
       return;
     }
     while (this.pending.length > 0) {
@@ -46,7 +46,7 @@ export class GpuTimer {
     }
   }
 
-  /** Yeni bir yapılandırmaya geçerken biriken örnekleri at. */
+  /** Drop the accumulated samples when switching to a new configuration. */
   reset(): void {
     this.samplesMs.length = 0;
   }

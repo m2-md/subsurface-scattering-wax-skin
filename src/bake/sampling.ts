@@ -11,12 +11,12 @@ export function radicalInverse2(index: number): number {
   return bits * 2.3283064365386963e-10; // 1 / 2^32
 }
 
-/** Hammersley: birinci bileşen düzgün ızgara, ikincisi ters ikili taban. */
+/** Hammersley: first component a uniform grid, second a base-2 bit reversal. */
 export function hammersley(i: number, n: number): [number, number] {
   return [(i + 0.5) / n, radicalInverse2(i)];
 }
 
-// Duff ve arkadaşlarının dallanmayan ortonormal bazı: n'e dik iki vektör.
+// Duff et al.'s branchless orthonormal basis: two vectors perpendicular to n.
 export function orthonormalBasis(n: Vec3): [Vec3, Vec3] {
   const sign = n[2] >= 0 ? 1 : -1;
   const a = -1 / (sign + n[2]);
@@ -27,7 +27,7 @@ export function orthonormalBasis(n: Vec3): [Vec3, Vec3] {
   ];
 }
 
-// Kosinüs ağırlıklı yarım küre örneği: yüzeye yakın yönler daha seyrek.
+// Cosine-weighted hemisphere sample: directions near the surface are rarer.
 export function cosineDirection(u1: number, u2: number, n: Vec3): Vec3 {
   const [t, bt] = orthonormalBasis(n);
   const r = Math.sqrt(u1);

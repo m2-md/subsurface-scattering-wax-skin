@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,7 +7,7 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='6' y='6' width='4' height='9' rx='1' fill='%23ffe6c4'/%3E%3Cellipse cx='8' cy='3' rx='2' ry='3' fill='%23ff7a3c'/%3E%3C/svg%3E"
     />
-    <title>Yüzey altı saçılma — mum ve ten</title>
+    <title>Subsurface scattering — wax and skin</title>
     <style>
       :root {
         color-scheme: dark;
@@ -182,11 +182,11 @@
   </head>
   <body>
     <main>
-      <h1>İçinden ışık geçen malzeme — mum ve ten için gerçek zamanlı SSS</h1>
+      <h1>Material that light passes through — real-time SSS for wax and skin</h1>
       <p class="lede">
-        Işık azimutunu 178°'den 28°'ye sürükleyin: geçirgenlik kızıllığı
-        kaybolur. Mod = Kalınlık ile fırından çıkan haritayı çıplak görün; beyaz
-        = kalın = ışık zor geçer.
+        Drag the light azimuth from 178° to 28°: the transmission redness
+        disappears. Use Mode = Thickness to see the map straight out of the bake;
+        white = thick = light has a hard time getting through.
       </p>
 
       <p id="banner" hidden></p>
@@ -198,33 +198,33 @@
 
       <div class="controls">
         <label class="field">
-          <span>Materyal</span>
+          <span>Material</span>
           <select id="material">
-            <option value="lambert">Lambert (yalın referans)</option>
-            <option value="sss" selected>Elle yazılmış SSS</option>
+            <option value="lambert">Lambert (plain baseline)</option>
+            <option value="sss" selected>Hand-written SSS</option>
             <option value="physical">MeshPhysicalMaterial</option>
           </select>
         </label>
         <label class="field">
-          <span>Kalınlık kaynağı</span>
+          <span>Thickness source</span>
           <select id="map">
             <option value="128">128²</option>
             <option value="256" selected>256²</option>
             <option value="512">512²</option>
-            <option value="constant">Sabit (0,5)</option>
+            <option value="constant">Constant (0.5)</option>
           </select>
         </label>
         <label class="field">
-          <span>Mod</span>
+          <span>Mode</span>
           <select id="mode">
-            <option value="0" selected>Tam</option>
-            <option value="1">Kalınlık</option>
-            <option value="2">Geçirgenlik</option>
+            <option value="0" selected>Full</option>
+            <option value="1">Thickness</option>
+            <option value="2">Transmission</option>
             <option value="3">Wrap</option>
           </select>
         </label>
         <label class="field">
-          <span>Işık azimutu <b id="azimuth-out">178°</b></span>
+          <span>Light azimuth <b id="azimuth-out">178°</b></span>
           <input
             id="azimuth"
             type="range"
@@ -235,7 +235,7 @@
           />
         </label>
         <label class="field">
-          <span>Işık yüksekliği <b id="elevation-out">10°</b></span>
+          <span>Light elevation <b id="elevation-out">10°</b></span>
           <input
             id="elevation"
             type="range"
@@ -246,7 +246,7 @@
           />
         </label>
         <label class="field">
-          <span>wrap <b id="wrap-out">0,50</b></span>
+          <span>wrap <b id="wrap-out">0.50</b></span>
           <input
             id="wrap"
             type="range"
@@ -257,7 +257,7 @@
           />
         </label>
         <label class="field">
-          <span>power <b id="power-out">4,0</b></span>
+          <span>power <b id="power-out">4.0</b></span>
           <input
             id="power"
             type="range"
@@ -268,7 +268,7 @@
           />
         </label>
         <label class="field">
-          <span>distortion <b id="distortion-out">0,25</b></span>
+          <span>distortion <b id="distortion-out">0.25</b></span>
           <input
             id="distortion"
             type="range"
@@ -279,7 +279,7 @@
           />
         </label>
         <label class="field">
-          <span>absorption <b id="absorption-out">3,0</b></span>
+          <span>absorption <b id="absorption-out">3.0</b></span>
           <input
             id="absorption"
             type="range"
@@ -292,12 +292,12 @@
         <label class="field">
           <span>Mesh</span>
           <select id="mesh">
-            <option value="candle" selected>Mum</option>
-            <option value="blob">Damla</option>
+            <option value="candle" selected>Candle</option>
+            <option value="blob">Blob</option>
           </select>
         </label>
         <label class="field">
-          <span>Çözünürlük ölçeği</span>
+          <span>Resolution scale</span>
           <select id="scale">
             <option value="0.5">0.5×</option>
             <option value="0.75" selected>0.75×</option>
@@ -305,17 +305,18 @@
           </select>
         </label>
         <div class="field">
-          <span>Döngü</span>
-          <button id="toggle" type="button">Dur</button>
+          <span>Loop</span>
+          <button id="toggle" type="button">Pause</button>
         </div>
       </div>
 
       <footer>
-        Kalınlık haritası repoda pişmiş geliyor; kendiniz pişirmek için
-        <code>npm run bake:all</code>. Deterministik ölçüm için adrese
-        <code>?measure=1</code> ekleyin; koşu bitince konsola tek satır
-        <code>MEASURE {…}</code> düşer. Koşu sırasında sekmeyi ön planda tutun —
-        gizli sekmede rAF kısılır ve sayılar kirlenir.
+        The thickness map ships baked in the repo; to bake it yourself, run
+        <code>npm run bake:all</code>. For a deterministic measurement add
+        <code>?measure=1</code> to the address; when the run finishes a single
+        line, <code>MEASURE {…}</code>, lands in the console. Keep the tab in the
+        foreground during the run — rAF is throttled in a hidden tab and the
+        numbers get polluted.
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

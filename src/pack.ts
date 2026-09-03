@@ -1,20 +1,20 @@
 /**
- * Doku baytı: ÖLÇÜLMEZ, HESAPLANIR. Mipmap üretmiyoruz, o yüzden zincir payı
- * yok — tek seviye, kanal başına bir bayt.
+ * Texture bytes: NOT MEASURED, COMPUTED. We generate no mipmaps, so there is
+ * no chain overhead — a single level, one byte per channel.
  */
 export function textureBytes(size: number, channels: number): number {
   if (!Number.isFinite(size) || size <= 0) {
-    throw new Error(`geçersiz doku boyutu: ${size}`);
+    throw new Error(`invalid texture size: ${size}`);
   }
   if (!Number.isInteger(channels) || channels <= 0) {
-    throw new Error(`geçersiz kanal sayısı: ${channels}`);
+    throw new Error(`invalid channel count: ${channels}`);
   }
   return size * size * channels;
 }
 
 /**
- * Mipmap zinciriyle birlikte bir RGBA8 hedefin baytı. Zincir toplamı
- * geometrik seri: 1 + 1/4 + 1/16 + … → 4/3.
+ * Bytes of an RGBA8 target including its mipmap chain. The chain sum is a
+ * geometric series: 1 + 1/4 + 1/16 + … → 4/3.
  */
 export function mipChainBytes(
   width: number,
